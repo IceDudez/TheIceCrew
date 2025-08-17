@@ -136,7 +136,7 @@ local Toggle = MainTab:CreateToggle({
             
             Rayfield:Notify({
                 Title = "NoClip",
-                Content = "NoClip activé - Vous pouvez traverser les murs",
+                Content = "NoClip,
                 Duration = 2,
             })
         else
@@ -148,7 +148,7 @@ local Toggle = MainTab:CreateToggle({
             
             Rayfield:Notify({
                 Title = "NoClip",
-                Content = "NoClip désactivé",
+                Content = "NoClip ",
                 Duration = 2,
             })
         end
@@ -302,7 +302,7 @@ local Toggle = ESPTab:CreateToggle({
             
             Rayfield:Notify({
                 Title = "ESP Hiders",
-                Content = "ESP Activated - Les Hiders sont maintenant visibles",
+                Content = "ESP Activated",
                 Duration = 2,
             })
         else
