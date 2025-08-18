@@ -1,0 +1,816 @@
+-- Check if this is the correct game
+if game.PlaceId ~= 286090429 then
+    Rayfield:Notify({
+        Title = "Wrong Game",
+        Content = "This script is for HyperShot only!",
+        Duration = 5,
+        Image = nil,
+    })
+    return
+end
+
+local Rayfield = loadstring(game:HttpGet("https://sirius.menu/rayfield"))()
+
+local Window = Rayfield:CreateWindow({
+    Name = "TheIceCrew | Arsenal",
+    Icon = 0,
+    LoadingTitle = "TheIceCrewHub",
+    LoadingSubtitle = "by IceDudez",
+    ShowText = "Rayfield",
+    Theme = "Default",
+    ToggleUIKeybind = "K",
+    DisableRayfieldPrompts = false,
+    DisableBuildWarnings = false,
+    ConfigurationSaving = {
+        Enabled = true,
+        FolderName = nil,
+        FileName = "IceHub"
+    },
+    Discord = {
+        Enabled = false,
+        Invite = "noinvitelink",
+        RememberJoins = true
+    },
+    KeySystem = true,
+    KeySettings = {
+        Title = "IceHubKeySystem",
+        Subtitle = "Key System",
+        Note = "https://loot-link.com/s?2kHdmfCz",
+        FileName = "IceHubKey",
+        SaveKey = true,
+        GrabKeyFromSite = true,
+        Key = {"https://pastebin.com/raw/hnLvPxsd"}
+    }
+})
+
+Rayfield:Notify({
+    Title = "Script Loaded",
+    Content = "Thanks for using TheIceCrewHub - Arsenal (Game ID: " .. game.PlaceId .. ")",
+    Duration = 5,
+    Image = nil,
+})
+
+-- Variables for HyperShot
+local savedSpeed = 16 -- Default walk speed
+local savedJumpHeight = 7.2 -- Default jump height
+
+-- Player Movement Variables
+local flyEnabled = false
+local flyConnection = nil
+local bodyVelocity = nil
+local infiniteJumpEnabled = false
+local infiniteJumpConnection = nil
+local noclipEnabled = false
+local noclipConnection = nil
+
+-- Combat Variables
+local aimbotEnabled = false
+local aimbotConnection = nil
+local aimbotFOV = 100
+local aimbotSmoothness = 0.8
+local aimbotTargetPart = "Head" -- Default target part
+local fovCircle = nil
+
+-- ESP Variables
+local espEnabled = false
+local espConnection = nil
+local highlights = {}
+local nameTags = {}
+local espColor = Color3.new(1, 0, 0) -- Default red color
+local fovColor = Color3.new(255, 255, 255) -- Default white color
+local targetTeammates = false -- Default: don't target teammates
+local showFOVEnabled = true -- Default: show FOV circle
+
+-- Function to apply saved speed and jump settings
+local function applySavedSettings()
+    local Player = game.Players.LocalPlayer
+    if Player.Character and Player.Character:FindFirstChild("Humanoid") then
+        local Humanoid = Player.Character.Humanoid
+        
+        -- Apply saved speed
+        if savedSpeed ~= 16 then
+            Humanoid.WalkSpeed = savedSpeed
+        end
+        
+        -- Apply saved jump height
+        if savedJumpHeight ~= 7.2 then
+            Humanoid.UseJumpPower = false
+            Humanoid.JumpHeight = savedJumpHeight
+        end
+    end
+end
+
+-- Create Player tab
+local PlayerTab = Window:CreateTab("Player", nil)
+
+-- Create Combat tab
+local CombatTab = Window:CreateTab("Combat", nil)
+
+-- Create ESP tab
+local ESPTab = Window:CreateTab("ESP", nil)
+
+-- Create Options tab
+local OptionsTab = Window:CreateTab("Options", nil)
+
+-- Auto-apply settings on respawn
+local Player = game.Players.LocalPlayer
+Player.CharacterAdded:Connect(function(character)
+    wait(1) -- Wait for character to fully load
+    applySavedSettings()
+end)
+
+-- Fly Toggle
+local FlyToggle = PlayerTab:CreateToggle({
+    Name = "Fly",
+    CurrentValue = false,
+    Flag = "FlyToggle",
+    Callback = function(Value)
+        flyEnabled = Value
+        if Value then
+            local Player = game.Players.LocalPlayer
+            if Player.Character and Player.Character:FindFirstChild("HumanoidRootPart") then
+                bodyVelocity = Instance.new("BodyVelocity")
+                bodyVelocity.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+                bodyVelocity.Velocity = Vector3.new(0, 0, 0)
+                bodyVelocity.Parent = Player.Character.HumanoidRootPart
+                
+                flyConnection = game:GetService("RunService").RenderStepped:Connect(function()
+                    if flyEnabled and Player.Character and Player.Character:FindFirstChild("HumanoidRootPart") then
+                        local UserInputService = game:GetService("UserInputService")
+                        local moveVector = Vector3.new(0, 0, 0)
+                        
+                        if UserInputService:IsKeyDown(Enum.KeyCode.W) then
+                            moveVector = moveVector + Vector3.new(0, 0, -1)
+                        end
+                        if UserInputService:IsKeyDown(Enum.KeyCode.S) then
+                            moveVector = moveVector + Vector3.new(0, 0, 1)
+                        end
+                        if UserInputService:IsKeyDown(Enum.KeyCode.A) then
+                            moveVector = moveVector + Vector3.new(-1, 0, 0)
+                        end
+                        if UserInputService:IsKeyDown(Enum.KeyCode.D) then
+                            moveVector = moveVector + Vector3.new(1, 0, 0)
+                        end
+                        if UserInputService:IsKeyDown(Enum.KeyCode.Space) then
+                            moveVector = moveVector + Vector3.new(0, 1, 0)
+                        end
+                        if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then
+                            moveVector = moveVector + Vector3.new(0, -1, 0)
+                        end
+                        
+                        if bodyVelocity then
+                            bodyVelocity.Velocity = moveVector * 50
+                        end
+                    end
+                end)
+            end
+            
+            Rayfield:Notify({
+                Title = "Fly",
+                Content = "Fly enabled (WASD + Space/Ctrl)",
+                Duration = 2,
+            })
+        else
+            if flyConnection then
+                flyConnection:Disconnect()
+                flyConnection = nil
+            end
+            if bodyVelocity then
+                bodyVelocity:Destroy()
+                bodyVelocity = nil
+            end
+            
+            Rayfield:Notify({
+                Title = "Fly",
+                Content = "Fly disabled",
+                Duration = 2,
+            })
+        end
+    end,
+})
+
+-- NoClip Toggle
+local NoClipToggle = PlayerTab:CreateToggle({
+    Name = "NoClip",
+    CurrentValue = false,
+    Flag = "NoClipToggle",
+    Callback = function(Value)
+        noclipEnabled = Value
+        if Value then
+            noclipConnection = game:GetService("RunService").Stepped:Connect(function()
+                if noclipEnabled and Player.Character then
+                    for _, part in pairs(Player.Character:GetDescendants()) do
+                        if part:IsA("BasePart") then
+                            part.CanCollide = false
+                        end
+                    end
+                end
+            end)
+            
+            Rayfield:Notify({
+                Title = "NoClip",
+                Content = "NoClip enabled",
+                Duration = 2,
+            })
+        else
+            if noclipConnection then
+                noclipConnection:Disconnect()
+                noclipConnection = nil
+            end
+            
+            Rayfield:Notify({
+                Title = "NoClip",
+                Content = "NoClip disabled",
+                Duration = 2,
+            })
+        end
+    end,
+})
+
+-- Infinite Jump Toggle
+local InfiniteJumpToggle = PlayerTab:CreateToggle({
+    Name = "Infinite Jump",
+    CurrentValue = false,
+    Flag = "InfiniteJumpToggle",
+    Callback = function(Value)
+        infiniteJumpEnabled = Value
+        if Value then
+            infiniteJumpConnection = game:GetService("UserInputService").JumpRequest:Connect(function()
+                if infiniteJumpEnabled and Player.Character and Player.Character:FindFirstChild("Humanoid") then
+                    Player.Character.Humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+                end
+            end)
+            
+            Rayfield:Notify({
+                Title = "Infinite Jump",
+                Content = "Infinite Jump enabled",
+                Duration = 2,
+            })
+        else
+            if infiniteJumpConnection then
+                infiniteJumpConnection:Disconnect()
+                infiniteJumpConnection = nil
+            end
+            
+            Rayfield:Notify({
+                Title = "Infinite Jump",
+                Content = "Infinite Jump disabled",
+                Duration = 2,
+            })
+        end
+    end,
+})
+
+-- Combat Functions
+local function createFOVCircle()
+    if fovCircle then
+        fovCircle:Remove()
+    end
+    
+    fovCircle = Drawing.new("Circle")
+    fovCircle.Thickness = 2
+    fovCircle.NumSides = 100
+    fovCircle.Radius = aimbotFOV
+    fovCircle.Filled = false
+    fovCircle.Visible = aimbotEnabled and showFOVEnabled
+    fovCircle.Color = fovColor
+    fovCircle.Position = Vector2.new(workspace.CurrentCamera.ViewportSize.X / 2, workspace.CurrentCamera.ViewportSize.Y / 2)
+end
+
+-- Function to check if player is on same team
+local function isOnSameTeam(player)
+    local localPlayer = game.Players.LocalPlayer
+    if localPlayer.Team and player.Team then
+        return localPlayer.Team == player.Team
+    end
+    return false
+end
+
+-- Function to create skeleton ESP
+local function createSkeleton(player)
+    if highlights[player] then return end
+    
+    local character = player.Character
+    if not character then return end
+    
+    local highlight = Instance.new("Highlight")
+    highlight.FillColor = espColor
+    highlight.OutlineColor = Color3.new(1, 1, 1)
+    highlight.FillTransparency = 0.5
+    highlight.OutlineTransparency = 0
+    highlight.Parent = character
+    highlights[player] = highlight
+end
+
+local function getClosestPlayerInFOV()
+    local closestPlayer = nil
+    local shortestDistance = math.huge
+    local localPlayer = game.Players.LocalPlayer
+    local localCharacter = localPlayer.Character
+    
+    if not localCharacter or not localCharacter:FindFirstChild("HumanoidRootPart") then
+        return nil
+    end
+    
+    for _, player in pairs(game.Players:GetPlayers()) do
+        if player ~= localPlayer and (targetTeammates or not isOnSameTeam(player)) and player.Character and player.Character:FindFirstChild("HumanoidRootPart") and player.Character:FindFirstChild("Humanoid") and player.Character.Humanoid.Health > 0 then
+            local targetCharacter = player.Character
+            local targetRootPart = targetCharacter.HumanoidRootPart
+            local targetPart = targetCharacter:FindFirstChild(aimbotTargetPart)
+            
+            if targetPart then
+                local targetScreenPos, onScreen = workspace.CurrentCamera:WorldToViewportPoint(targetPart.Position)
+                
+                if onScreen then
+                    local screenCenter = Vector2.new(workspace.CurrentCamera.ViewportSize.X / 2, workspace.CurrentCamera.ViewportSize.Y / 2)
+                    local targetScreenPos2D = Vector2.new(targetScreenPos.X, targetScreenPos.Y)
+                    local distance = (targetScreenPos2D - screenCenter).Magnitude
+                    
+                    if distance <= aimbotFOV and distance < shortestDistance then
+                        closestPlayer = player
+                        shortestDistance = distance
+                    end
+                end
+            end
+        end
+    end
+    
+    return closestPlayer
+end
+
+-- Aimbot Toggle
+local AimbotToggle = CombatTab:CreateToggle({
+    Name = "Aimbot",
+    CurrentValue = false,
+    Flag = "AimbotToggle",
+    Callback = function(Value)
+        aimbotEnabled = Value
+        if Value then
+            createFOVCircle()
+            aimbotConnection = game:GetService("RunService").RenderStepped:Connect(function()
+                if fovCircle then
+                    fovCircle.Visible = true
+                    fovCircle.Position = Vector2.new(workspace.CurrentCamera.ViewportSize.X / 2, workspace.CurrentCamera.ViewportSize.Y / 2)
+                end
+                
+                local UserInputService = game:GetService("UserInputService")
+                if UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton2) then
+                    local targetPlayer = getClosestPlayerInFOV()
+                    if targetPlayer and targetPlayer.Character and targetPlayer.Character:FindFirstChild(aimbotTargetPart) then
+                        local targetPart = targetPlayer.Character:FindFirstChild(aimbotTargetPart)
+                        local camera = workspace.CurrentCamera
+                        local targetCFrame = CFrame.new(camera.CFrame.Position, targetPart.Position)
+                        camera.CFrame = camera.CFrame:Lerp(targetCFrame, aimbotSmoothness)
+                    end
+                end
+            end)
+            
+            Rayfield:Notify({
+                Title = "Aimbot",
+                Content = "Aimbot enabled (Hold Right Click) - Only targets enemies",
+                Duration = 2,
+            })
+        else
+            if aimbotConnection then
+                aimbotConnection:Disconnect()
+                aimbotConnection = nil
+            end
+            if fovCircle then
+                fovCircle.Visible = false
+            end
+            
+            Rayfield:Notify({
+                Title = "Aimbot",
+                Content = "Aimbot disabled",
+                Duration = 2,
+            })
+        end
+    end,
+})
+
+-- FOV Slider
+local FOVSlider = CombatTab:CreateSlider({
+    Name = "Aimbot FOV",
+    Range = {50, 300},
+    Increment = 10,
+    Suffix = " FOV",
+    CurrentValue = 100,
+    Flag = "FOVSlider",
+    Callback = function(Value)
+        aimbotFOV = Value
+        if fovCircle then
+            fovCircle.Radius = Value
+        end
+        Rayfield:Notify({
+            Title = "FOV",
+            Content = "FOV set to: " .. Value,
+            Duration = 2,
+        })
+    end,
+})
+
+-- Smoothness Slider
+local SmoothnessSlider = CombatTab:CreateSlider({
+    Name = "Aimbot Smoothness",
+    Range = {0.1, 1.0},
+    Increment = 0.1,
+    Suffix = " Smoothness",
+    CurrentValue = 0.8,
+    Flag = "SmoothnessSlider",
+    Callback = function(Value)
+        aimbotSmoothness = Value
+        Rayfield:Notify({
+            Title = "Smoothness",
+            Content = "Aimbot smoothness set to: " .. string.format("%.1f", Value),
+            Duration = 2,
+        })
+    end,
+})
+
+-- Aimbot Target Part Buttons
+local AimbotHeadButton = CombatTab:CreateButton({
+    Name = "Target Head",
+    Callback = function()
+        aimbotTargetPart = "Head"
+        Rayfield:Notify({
+            Title = "Aimbot Target",
+            Content = "Aimbot now targets: Head",
+            Duration = 2,
+        })
+    end,
+})
+
+local AimbotHumanoidRootPartButton = CombatTab:CreateButton({
+    Name = "Target HumanoidRootPart",
+    Callback = function()
+        aimbotTargetPart = "HumanoidRootPart"
+        Rayfield:Notify({
+            Title = "Aimbot Target",
+            Content = "Aimbot now targets: HumanoidRootPart",
+            Duration = 2,
+        })
+    end,
+})
+
+
+
+-- ESP Functions
+local function createNameTag(player)
+    if nameTags[player] then return end
+    
+    local nameTag = Instance.new("BillboardGui")
+    nameTag.Name = "NameTag"
+    nameTag.Size = UDim2.new(0, 200, 0, 50)
+    nameTag.StudsOffset = Vector3.new(0, 4, 0)
+    nameTag.AlwaysOnTop = true
+    nameTag.Adornee = player.Character and player.Character:FindFirstChild("Head")
+    
+    local nameLabel = Instance.new("TextLabel")
+    nameLabel.Size = UDim2.new(1, 0, 1, 0)
+    nameLabel.BackgroundTransparency = 1
+    nameLabel.Text = player.Name
+    nameLabel.TextColor3 = Color3.new(1, 1, 1)
+    nameLabel.TextStrokeColor3 = Color3.new(0, 0, 0)
+    nameLabel.TextStrokeTransparency = 0
+    nameLabel.TextScaled = true
+    nameLabel.Font = Enum.Font.GothamBold
+    nameLabel.Parent = nameTag
+    
+    nameTag.Parent = player.Character and player.Character:FindFirstChild("Head")
+    nameTags[player] = nameTag
+end
+
+local function updateAllPlayerHighlights()
+    local playerCount = 0
+    for _, player in pairs(game.Players:GetPlayers()) do
+        if player ~= game.Players.LocalPlayer and (targetTeammates or not isOnSameTeam(player)) then
+            if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+                if not highlights[player] then
+                    createSkeleton(player)
+                    createNameTag(player)
+                    playerCount = playerCount + 1
+                end
+            end
+        end
+    end
+    
+    -- Debug notification for first time
+    if playerCount > 0 and espEnabled then
+        Rayfield:Notify({
+            Title = "ESP Debug",
+            Content = "Highlighted " .. playerCount .. " players",
+            Duration = 2,
+        })
+    end
+end
+
+-- Function to handle new player joining
+local function handleNewPlayer(player)
+    if espEnabled then
+        player.CharacterAdded:Connect(function(character)
+            wait(1) -- Wait for character to load
+            if espEnabled then
+                updateAllPlayerHighlights()
+                Rayfield:Notify({
+                    Title = "ESP",
+                    Content = "New player detected - ESP updated",
+                    Duration = 2,
+                })
+            end
+        end)
+    end
+end
+
+local function clearAllHighlights()
+    for player, highlight in pairs(highlights) do
+        if highlight and highlight.Parent then
+            highlight:Destroy()
+        end
+    end
+    highlights = {}
+end
+
+local function clearAllNameTags()
+    for player, nameTag in pairs(nameTags) do
+        if nameTag and nameTag.Parent then
+            nameTag:Destroy()
+        end
+    end
+    nameTags = {}
+end
+
+-- ESP Toggle
+local ESPToggle = ESPTab:CreateToggle({
+    Name = "ESP All Players",
+    CurrentValue = false,
+    Flag = "ESPToggle",
+    Callback = function(Value)
+        espEnabled = Value
+        if Value then
+            updateAllPlayerHighlights()
+            Rayfield:Notify({
+                Title = "ESP",
+                Content = "ESP enabled for all players",
+                Duration = 2,
+            })
+        else
+            clearAllHighlights()
+            Rayfield:Notify({
+                Title = "ESP",
+                Content = "ESP disabled",
+                Duration = 2,
+            })
+        end
+    end,
+})
+
+
+
+-- ESP Update Loop
+local RunService = game:GetService("RunService")
+RunService.RenderStepped:Connect(function()
+    if espEnabled then
+        updateAllPlayerHighlights()
+    end
+end)
+
+-- Handle new players joining
+game.Players.PlayerAdded:Connect(function(player)
+    handleNewPlayer(player)
+end)
+
+-- Handle existing players when ESP is enabled
+for _, player in pairs(game.Players:GetPlayers()) do
+    if player ~= game.Players.LocalPlayer then
+        handleNewPlayer(player)
+    end
+end
+
+-- Handle players leaving
+game.Players.PlayerRemoving:Connect(function(player)
+    if highlights[player] then
+        highlights[player]:Destroy()
+        highlights[player] = nil
+    end
+    if nameTags[player] then
+        nameTags[player]:Destroy()
+        nameTags[player] = nil
+    end
+end)
+
+-- Options Section
+-- FOV Color Picker
+local FOVColorPicker = OptionsTab:CreateColorPicker({
+    Name = "FOV Color",
+    Color = Color3.fromRGB(255, 255, 255),
+    Flag = "FOVColorPicker",
+    Callback = function(Value)
+        fovColor = Value
+        if fovCircle then
+            fovCircle.Color = Value
+        end
+        Rayfield:Notify({
+            Title = "FOV Color",
+            Content = "FOV color updated",
+            Duration = 2,
+        })
+    end,
+})
+
+-- ESP Color Picker
+local ESPColorPicker = OptionsTab:CreateColorPicker({
+    Name = "ESP Color",
+    Color = Color3.fromRGB(255, 0, 0),
+    Flag = "ESPColorPicker",
+    Callback = function(Value)
+        espColor = Value
+        -- Update existing highlights
+        for player, highlight in pairs(highlights) do
+            if highlight and highlight.Parent then
+                highlight.FillColor = Value
+            end
+        end
+        Rayfield:Notify({
+            Title = "ESP Color",
+            Content = "ESP color updated",
+            Duration = 2,
+        })
+    end,
+})
+
+-- Target Teammates Toggle
+local TargetTeammatesToggle = OptionsTab:CreateToggle({
+    Name = "Target Teammates (Aimbot & ESP)",
+    CurrentValue = false,
+    Flag = "TargetTeammatesToggle",
+    Callback = function(Value)
+        targetTeammates = Value
+        if Value then
+            Rayfield:Notify({
+                Title = "Target Teammates",
+                Content = "Aimbot and ESP will now target teammates",
+                Duration = 2,
+            })
+        else
+            Rayfield:Notify({
+                Title = "Target Teammates",
+                Content = "Aimbot and ESP will only target enemies",
+                Duration = 2,
+            })
+        end
+        -- Clear and re-apply ESP
+        if espEnabled then
+            clearAllHighlights()
+            updateAllPlayerHighlights()
+        end
+    end,
+})
+
+-- Auto TP to Enemies Toggle
+local autoTPEnabled = false
+local autoTPConnection = nil
+local currentTarget = nil
+local tpTimer = 0
+local tpDelay = 2 -- Time to stay on each enemy (2 seconds)
+
+local AutoTPToggle = CombatTab:CreateToggle({
+    Name = "Auto TP to Enemies",
+    CurrentValue = false,
+    Flag = "AutoTPToggle",
+    Callback = function(Value)
+        autoTPEnabled = Value
+        if Value then
+            -- Find first enemy to target
+            local localPlayer = game.Players.LocalPlayer
+            for _, player in pairs(game.Players:GetPlayers()) do
+                if player ~= localPlayer and not isOnSameTeam(player) and player.Character and player.Character:FindFirstChild("Humanoid") and player.Character.Humanoid.Health > 0 then
+                    currentTarget = player
+                    break
+                end
+            end
+            
+            if currentTarget then
+                tpTimer = 0
+                autoTPConnection = game:GetService("RunService").RenderStepped:Connect(function()
+                    if autoTPEnabled and currentTarget and currentTarget.Character and currentTarget.Character:FindFirstChild("HumanoidRootPart") and currentTarget.Character:FindFirstChild("Humanoid") and currentTarget.Character.Humanoid.Health > 0 then
+                        -- TP to current target
+                        local localCharacter = localPlayer.Character
+                        if localCharacter and localCharacter:FindFirstChild("HumanoidRootPart") then
+                            local targetRootPart = currentTarget.Character.HumanoidRootPart
+                            local targetCFrame = targetRootPart.CFrame
+                            
+                            -- Calculate position behind the target (3 studs behind)
+                            local behindPosition = targetCFrame.Position - (targetCFrame.LookVector * 3)
+                            
+                            -- Set our position to behind the target
+                            localCharacter.HumanoidRootPart.CFrame = CFrame.new(behindPosition)
+                        end
+                        
+                        -- Increment timer
+                        tpTimer = tpTimer + (1/60) -- Assuming 60 FPS
+                        
+                        -- Check if we should move to next enemy
+                        if tpTimer >= tpDelay then
+                            tpTimer = 0
+                            -- Find next enemy
+                            local nextTarget = nil
+                            local foundCurrent = false
+                            
+                            for _, player in pairs(game.Players:GetPlayers()) do
+                                if player ~= localPlayer and not isOnSameTeam(player) and player.Character and player.Character:FindFirstChild("Humanoid") and player.Character.Humanoid.Health > 0 then
+                                    if foundCurrent then
+                                        nextTarget = player
+                                        break
+                                    end
+                                    if player == currentTarget then
+                                        foundCurrent = true
+                                    end
+                                end
+                            end
+                            
+                            -- If no next target found, start from beginning
+                            if not nextTarget then
+                                for _, player in pairs(game.Players:GetPlayers()) do
+                                    if player ~= localPlayer and not isOnSameTeam(player) and player.Character and player.Character:FindFirstChild("Humanoid") and player.Character.Humanoid.Health > 0 then
+                                        nextTarget = player
+                                        break
+                                    end
+                                end
+                            end
+                            
+                            if nextTarget then
+                                currentTarget = nextTarget
+                                Rayfield:Notify({
+                                    Title = "Auto TP",
+                                    Content = "Now targeting: " .. currentTarget.Name,
+                                    Duration = 1,
+                                })
+                            else
+                                -- No more enemies, stop auto TP
+                                if autoTPConnection then
+                                    autoTPConnection:Disconnect()
+                                    autoTPConnection = nil
+                                end
+                                autoTPEnabled = false
+                                Rayfield:Notify({
+                                    Title = "Auto TP",
+                                    Content = "No more enemies to target - Auto TP stopped",
+                                    Duration = 3,
+                                })
+                            end
+                        end
+                    else
+                        -- Current target is dead or invalid, find next enemy
+                        currentTarget = nil
+                        tpTimer = 0
+                        for _, player in pairs(game.Players:GetPlayers()) do
+                            if player ~= localPlayer and not isOnSameTeam(player) and player.Character and player.Character:FindFirstChild("Humanoid") and player.Character.Humanoid.Health > 0 then
+                                currentTarget = player
+                                break
+                            end
+                        end
+                        
+                        -- If no more enemies, stop auto TP
+                        if not currentTarget then
+                            if autoTPConnection then
+                                autoTPConnection:Disconnect()
+                                autoTPConnection = nil
+                            end
+                            autoTPEnabled = false
+                            Rayfield:Notify({
+                                Title = "Auto TP",
+                                Content = "No more enemies to target - Auto TP stopped",
+                                Duration = 3,
+                            })
+                        end
+                    end
+                end)
+                
+                Rayfield:Notify({
+                    Title = "Auto TP",
+                    Content = "Auto TP enabled - Targeting: " .. currentTarget.Name .. " (2s per enemy)",
+                    Duration = 3,
+                })
+            else
+                Rayfield:Notify({
+                    Title = "Auto TP",
+                    Content = "No enemies found to target",
+                    Duration = 3,
+                })
+                autoTPEnabled = false
+            end
+        else
+            if autoTPConnection then
+                autoTPConnection:Disconnect()
+                autoTPConnection = nil
+            end
+            currentTarget = nil
+            tpTimer = 0
+            Rayfield:Notify({
+                Title = "Auto TP",
+                Content = "Auto TP disabled",
+                Duration = 2,
+            })
+        end
+    end,
+})
