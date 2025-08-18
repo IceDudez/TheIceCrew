@@ -1,0 +1,1091 @@
+-- Rayfield UI Library
+if game.PlaceId == 12355337193 then
+    local Rayfield = loadstring(game:HttpGet("https://sirius.menu/rayfield"))()
+    
+    local Window = Rayfield:CreateWindow({
+        Name = "TheIceCrew | Murderers VS Sheriffs DUELS",
+        Icon = 0,
+        LoadingTitle = "TheIceCrewHub",
+        LoadingSubtitle = "by IceDudez",
+        ShowText = "Rayfield",
+        Theme = "Default",
+        ToggleUIKeybind = "K",
+        DisableRayfieldPrompts = false,
+        DisableBuildWarnings = false,
+        ConfigurationSaving = {
+            Enabled = true,
+            FolderName = nil,
+            FileName = "IceHub"
+        },
+        Discord = {
+            Enabled = false,
+            Invite = "noinvitelink",
+            RememberJoins = true
+        },
+        KeySystem = true,
+        KeySettings = {
+            Title = "IceHubKeySystem",
+            Subtitle = "Key System",
+            Note = "https://loot-link.com/s?2kHdmfCz",
+            FileName = "IceHubKey",
+            SaveKey = true,
+            GrabKeyFromSite = true,
+            Key = {"https://pastebin.com/raw/hnLvPxsd"}
+        }
+    })
+    
+    Rayfield:Notify({
+        Title = "Script Loaded",
+        Content = "Thanks for using TheIceCrewHub - Murderers VS Sheriffs DUELS",
+        Duration = 5,
+        Image = nil,
+    })
+    
+    -- Variables for game 2
+    local flyConnection2 = nil
+    local bodyVelocity2 = nil
+    local infiniteJumpConnection2 = nil
+    local noclipConnection2 = nil
+    local espConnection2 = nil
+    local highlights2 = {}
+    local aimbotConnection2 = nil
+    local aimbotTarget2 = nil
+    local aimbotFOV2 = 200
+    local fovCircle2 = nil
+    local espEnabled2 = false -- Track ESP state
+    local playerAddedConnection2 = nil
+    local playerRemovingConnection2 = nil
+    
+         -- Customization variables
+     local fovColor2 = Color3.fromRGB(255, 255, 255) -- White FOV
+     local espColor2 = Color3.fromRGB(255, 255, 0) -- Yellow ESP
+     local aimbotKey2 = Enum.UserInputType.MouseButton2 -- Right Click
+     local ignoreTeam2 = true -- Ignore teammates by default
+     local wallbangEnabled2 = false -- Wallbang system
+     local tpToClosestEnabled2 = false -- TP to closest player system
+     local bringConnection2 = nil -- Connection for bring system
+     local targetEnemies2 = true -- Target enemies by default (true = enemies, false = teammates)
+     local savedSpeed2 = 16 -- Default walk speed
+     local savedJumpHeight2 = 7.2 -- Default jump height
+     local savedInfiniteJump2 = false -- Save infinite jump state
+     local savedNoClip2 = false -- Save noclip state
+     local savedFly2 = false -- Save fly state
+    
+         -- Function to check if player is on same team
+     local function isOnSameTeam(player)
+         if not ignoreTeam2 then return false end
+         
+         local localPlayer = game.Players.LocalPlayer
+         
+         -- Check if both players have teams
+         if localPlayer.Team and player.Team then
+             return localPlayer.Team == player.Team
+         end
+         
+         -- Check if both players are in the same group
+         if localPlayer:FindFirstChild("leaderstats") and player:FindFirstChild("leaderstats") then
+             -- You can add more specific team detection logic here based on the game
+             return false
+         end
+         
+         return false
+     end
+     
+     -- Function to check if player is visible (not behind wall)
+     local function isPlayerVisible(player)
+         if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then
+             return false
+         end
+         
+         local localPlayer = game.Players.LocalPlayer
+         if not localPlayer.Character or not localPlayer.Character:FindFirstChild("Head") then
+             return false
+         end
+         
+         local camera = workspace.CurrentCamera
+         local startPos = camera.CFrame.Position
+         local endPos = player.Character.HumanoidRootPart.Position
+         
+         -- Cast a ray from camera to player
+         local raycastParams = RaycastParams.new()
+         raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
+         raycastParams.FilterDescendantsInstances = {localPlayer.Character, player.Character}
+         
+         local raycastResult = workspace:Raycast(startPos, (endPos - startPos), raycastParams)
+         
+         -- If raycast hits nothing or hits the player, they are visible
+         return not raycastResult or raycastResult.Instance:IsDescendantOf(player.Character)
+     end
+     
+     -- Function to teleport to closest player
+     local function teleportToClosestPlayer()
+         local Players = game:GetService("Players")
+         local localPlayer = game.Players.LocalPlayer
+         
+         if not localPlayer.Character or not localPlayer.Character:FindFirstChild("HumanoidRootPart") then
+             Rayfield:Notify({
+                 Title = "TP Error",
+                 Content = "Your character is not loaded",
+                 Duration = 2,
+             })
+             return
+         end
+         
+         -- Find the closest target player (enemy or teammate based on setting)
+         local closestPlayer = nil
+         local shortestDistance = math.huge
+         
+         for _, player in pairs(Players:GetPlayers()) do
+             if player ~= localPlayer then
+                 local character = player.Character
+                 if character and character:FindFirstChild("HumanoidRootPart") and character:FindFirstChild("Humanoid") then
+                     if character.Humanoid.Health > 0 then
+                         -- Check if this player matches our target preference
+                         local isEnemy = isOnSameTeam(player) == false
+                         if (targetEnemies2 and isEnemy) or (not targetEnemies2 and not isEnemy) then
+                             local distance = (character.HumanoidRootPart.Position - localPlayer.Character.HumanoidRootPart.Position).Magnitude
+                             if distance < shortestDistance and distance < 1000 then
+                                 shortestDistance = distance
+                                 closestPlayer = player
+                             end
+                         end
+                     end
+                 end
+             end
+         end
+         
+         -- If we found a target, teleport to them
+         if closestPlayer then
+             local targetPosition = closestPlayer.Character.HumanoidRootPart.Position
+             localPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(targetPosition + Vector3.new(0, 3, 0))
+             
+             local targetType = targetEnemies2 and "enemy" or "teammate"
+             Rayfield:Notify({
+                 Title = "TP to Closest",
+                 Content = "Teleported to " .. closestPlayer.Name .. " (" .. targetType .. ") - Distance: " .. math.floor(shortestDistance) .. " studs",
+                 Duration = 3,
+             })
+         else
+             local targetType = targetEnemies2 and "enemy" or "teammate"
+             Rayfield:Notify({
+                 Title = "TP to Closest",
+                 Content = "No " .. targetType .. " players found within range",
+                 Duration = 2,
+             })
+         end
+     end
+     
+     -- Function to bring closest player to you
+     local function bringClosestPlayer()
+         local Players = game:GetService("Players")
+         local localPlayer = game.Players.LocalPlayer
+         local RunService = game:GetService("RunService")
+         
+         if not localPlayer.Character or not localPlayer.Character:FindFirstChild("HumanoidRootPart") then
+             Rayfield:Notify({
+                 Title = "Bring Error",
+                 Content = "Your character is not loaded",
+                 Duration = 2,
+             })
+             return
+         end
+         
+         -- Find the closest target player (enemy or teammate based on setting)
+         local closestPlayer = nil
+         local shortestDistance = math.huge
+         
+         for _, player in pairs(Players:GetPlayers()) do
+             if player ~= localPlayer then
+                 local character = player.Character
+                 if character and character:FindFirstChild("HumanoidRootPart") and character:FindFirstChild("Humanoid") then
+                     if character.Humanoid.Health > 0 then
+                         -- Check if this player matches our target preference
+                         local isEnemy = isOnSameTeam(player) == false
+                         if (targetEnemies2 and isEnemy) or (not targetEnemies2 and not isEnemy) then
+                             local distance = (character.HumanoidRootPart.Position - localPlayer.Character.HumanoidRootPart.Position).Magnitude
+                             if distance < shortestDistance and distance < 1000 then
+                                 shortestDistance = distance
+                                 closestPlayer = player
+                             end
+                         end
+                     end
+                 end
+             end
+         end
+         
+         -- If we found a target, start bringing them to you
+         if closestPlayer then
+             -- Disconnect previous bring connection if exists
+             if bringConnection2 then
+                 bringConnection2:Disconnect()
+                 bringConnection2 = nil
+             end
+             
+             -- Start continuous bring
+             bringConnection2 = RunService.RenderStepped:Connect(function()
+                 if not localPlayer.Character or not localPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                     if bringConnection2 then
+                         bringConnection2:Disconnect()
+                         bringConnection2 = nil
+                     end
+                     return
+                 end
+                 
+                 if not closestPlayer.Character or not closestPlayer.Character:FindFirstChild("HumanoidRootPart") or closestPlayer.Character.Humanoid.Health <= 0 then
+                     if bringConnection2 then
+                         bringConnection2:Disconnect()
+                         bringConnection2 = nil
+                     end
+                     Rayfield:Notify({
+                         Title = "Bring Stopped",
+                         Content = "Target player is no longer available",
+                         Duration = 2,
+                     })
+                     return
+                 end
+                 
+                 local myPosition = localPlayer.Character.HumanoidRootPart.Position
+                 local targetPosition = myPosition + Vector3.new(0, 3, 0)
+                 
+                 -- Continuously bring the player to you
+                 closestPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(targetPosition)
+             end)
+             
+             local targetType = targetEnemies2 and "enemy" or "teammate"
+             Rayfield:Notify({
+                 Title = "Bring Closest",
+                 Content = "Bringing " .. closestPlayer.Name .. " (" .. targetType .. ") to you (Click again to stop)",
+                 Duration = 3,
+             })
+         else
+             local targetType = targetEnemies2 and "enemy" or "teammate"
+             Rayfield:Notify({
+                 Title = "Bring Closest",
+                 Content = "No " .. targetType .. " players found within range",
+                 Duration = 2,
+             })
+         end
+     end
+     
+     -- Function to stop bringing player
+     local function stopBringingPlayer()
+         if bringConnection2 then
+             bringConnection2:Disconnect()
+             bringConnection2 = nil
+             Rayfield:Notify({
+                 Title = "Bring Stopped",
+                 Content = "Stopped bringing player to you",
+                 Duration = 2,
+             })
+         end
+     end
+     
+     -- Function to apply saved speed and jump settings
+     local function applySavedSettings()
+         local Player = game.Players.LocalPlayer
+         if Player.Character and Player.Character:FindFirstChild("Humanoid") then
+             local Humanoid = Player.Character.Humanoid
+             
+             -- Apply saved speed
+             if savedSpeed2 ~= 16 then
+                 Humanoid.WalkSpeed = savedSpeed2
+             end
+             
+             -- Apply saved jump height
+             if savedJumpHeight2 ~= 7.2 then
+                 Humanoid.UseJumpPower = false
+                 Humanoid.JumpHeight = savedJumpHeight2
+             end
+         end
+         
+         -- Apply saved movement settings
+         if savedInfiniteJump2 then
+             local UserInputService = game:GetService("UserInputService")
+             infiniteJumpConnection2 = UserInputService.JumpRequest:Connect(function()
+                 if Player.Character and Player.Character:FindFirstChild("Humanoid") then
+                     Player.Character.Humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+                 end
+             end)
+         end
+         
+         if savedNoClip2 then
+             local RunService = game:GetService("RunService")
+             noclipConnection2 = RunService.Stepped:Connect(function()
+                 if Player.Character then
+                     for _, part in pairs(Player.Character:GetDescendants()) do
+                         if part:IsA("BasePart") then
+                             part.CanCollide = false
+                         end
+                     end
+                 end
+             end)
+         end
+         
+         if savedFly2 then
+             local UserInputService = game:GetService("UserInputService")
+             local RunService = game:GetService("RunService")
+             local speed = 50
+             
+             local Character = Player.Character or Player.CharacterAdded:Wait()
+             local HumanoidRootPart = Character:WaitForChild("HumanoidRootPart")
+             
+             bodyVelocity2 = Instance.new("BodyVelocity")
+             bodyVelocity2.MaxForce = Vector3.new(1e5, 1e5, 1e5)
+             bodyVelocity2.Velocity = Vector3.zero
+             bodyVelocity2.Parent = HumanoidRootPart
+             
+             flyConnection2 = RunService.RenderStepped:Connect(function()
+                 if bodyVelocity2 and bodyVelocity2.Parent then
+                     local moveDirection = Vector3.zero
+                     if UserInputService:IsKeyDown(Enum.KeyCode.W) then
+                         moveDirection += workspace.CurrentCamera.CFrame.LookVector
+                     end
+                     if UserInputService:IsKeyDown(Enum.KeyCode.S) then
+                         moveDirection -= workspace.CurrentCamera.CFrame.LookVector
+                     end
+                     if UserInputService:IsKeyDown(Enum.KeyCode.A) then
+                         moveDirection -= workspace.CurrentCamera.CFrame.RightVector
+                     end
+                     if UserInputService:IsKeyDown(Enum.KeyCode.D) then
+                         moveDirection += workspace.CurrentCamera.CFrame.RightVector
+                     end
+                     if UserInputService:IsKeyDown(Enum.KeyCode.Space) then
+                         moveDirection += Vector3.new(0, 1, 0)
+                     end
+                     if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then
+                         moveDirection -= Vector3.new(0, 1, 0)
+                     end
+                     
+                     if moveDirection.Magnitude > 0 then
+                         bodyVelocity2.Velocity = moveDirection.Unit * speed
+                     else
+                         bodyVelocity2.Velocity = Vector3.zero
+                     end
+                 end
+             end)
+         end
+     end
+     
+     -- Create tabs
+     local PlayerTab = Window:CreateTab("Player", nil)
+     local MovementTab = Window:CreateTab("Movement", nil)
+     local CombatTab = Window:CreateTab("Combat", nil)
+     local OptionsTab = Window:CreateTab("Options", nil)
+     
+     -- Auto-apply settings on respawn
+     local Player = game.Players.LocalPlayer
+     Player.CharacterAdded:Connect(function(character)
+         wait(1) -- Wait for character to fully load
+         applySavedSettings()
+     end)
+    
+    -- Player Tab
+    local SpeedInput = PlayerTab:CreateInput({
+        Name = "Speed Modifier",
+        PlaceholderText = "Enter speed (ex: 50)",
+        RemoveTextAfterFocusLost = false,
+                 Callback = function(Text)
+             local speed = tonumber(Text)
+             if speed then
+                 savedSpeed2 = speed -- Save the speed value
+                 local Player = game.Players.LocalPlayer
+                 local Character = Player.Character or Player.CharacterAdded:Wait()
+                 local Humanoid = Character:WaitForChild("Humanoid")
+                 Humanoid.WalkSpeed = speed
+                 
+                 Rayfield:Notify({
+                     Title = "Speed",
+                     Content = "Speed set to: " .. speed .. " (will auto-apply on respawn)",
+                     Duration = 2,
+                 })
+             else
+                 Rayfield:Notify({
+                     Title = "Error",
+                     Content = "Please enter a valid number",
+                     Duration = 2,
+                 })
+             end
+         end,
+    })
+    
+    local JumpInput = PlayerTab:CreateInput({
+        Name = "Jump Modifier",
+        PlaceholderText = "Enter jump height (ex: 50)",
+        RemoveTextAfterFocusLost = false,
+                 Callback = function(Text)
+             local jumpHeight = tonumber(Text)
+             if jumpHeight then
+                 savedJumpHeight2 = jumpHeight -- Save the jump height value
+                 local Player = game.Players.LocalPlayer
+                 local Character = Player.Character or Player.CharacterAdded:Wait()
+                 local Humanoid = Character:WaitForChild("Humanoid")
+                 Humanoid.UseJumpPower = false
+                 Humanoid.JumpHeight = jumpHeight
+                 
+                 Rayfield:Notify({
+                     Title = "Jump",
+                     Content = "Jump height set to: " .. jumpHeight .. " (will auto-apply on respawn)",
+                     Duration = 2,
+                 })
+             else
+                 Rayfield:Notify({
+                     Title = "Error",
+                     Content = "Please enter a valid number",
+                     Duration = 2,
+                 })
+             end
+         end,
+    })
+    
+
+    
+    -- Movement Tab
+    local Toggle = MovementTab:CreateToggle({
+        Name = "Infinite Jump",
+        CurrentValue = false,
+        Flag = "Toggle1",
+        Callback = function(Value)
+            local Player = game.Players.LocalPlayer
+            local UserInputService = game:GetService("UserInputService")
+            
+                         if Value then
+                 savedInfiniteJump2 = true -- Save the state
+                 infiniteJumpConnection2 = UserInputService.JumpRequest:Connect(function()
+                     if Player.Character and Player.Character:FindFirstChild("Humanoid") then
+                         Player.Character.Humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+                     end
+                 end)
+                 
+                 Rayfield:Notify({
+                     Title = "Infinite Jump",
+                     Content = "Infinite Jump activated (will auto-apply on respawn)",
+                     Duration = 2,
+                 })
+             else
+                 savedInfiniteJump2 = false -- Save the state
+                 if infiniteJumpConnection2 then
+                     infiniteJumpConnection2:Disconnect()
+                     infiniteJumpConnection2 = nil
+                 end
+                 
+                 Rayfield:Notify({
+                     Title = "Infinite Jump",
+                     Content = "Infinite Jump deactivated",
+                     Duration = 2,
+                 })
+             end
+        end,
+    })
+    
+    local Toggle = MovementTab:CreateToggle({
+        Name = "NoClip",
+        CurrentValue = false,
+        Flag = "Toggle2",
+        Callback = function(Value)
+            local Player = game.Players.LocalPlayer
+            local RunService = game:GetService("RunService")
+    
+                         if Value then
+                 savedNoClip2 = true -- Save the state
+                 noclipConnection2 = RunService.Stepped:Connect(function()
+                     if Player.Character then
+                         for _, part in pairs(Player.Character:GetDescendants()) do
+                             if part:IsA("BasePart") then
+                                 part.CanCollide = false
+                             end
+                         end
+                     end
+                 end)
+                 
+                 Rayfield:Notify({
+                     Title = "NoClip",
+                     Content = "NoClip activated (will auto-apply on respawn)",
+                     Duration = 2,
+                 })
+             else
+                 savedNoClip2 = false -- Save the state
+                 if noclipConnection2 then
+                     noclipConnection2:Disconnect()
+                     noclipConnection2 = nil
+                 end
+                 
+                 Rayfield:Notify({
+                     Title = "NoClip",
+                     Content = "NoClip deactivated",
+                     Duration = 2,
+                 })
+             end
+        end,
+    })
+    
+    local Toggle = MovementTab:CreateToggle({
+        Name = "Fly",
+        CurrentValue = false,
+        Flag = "Toggle3",
+        Callback = function(Value)
+            local Player = game.Players.LocalPlayer
+            local UserInputService = game:GetService("UserInputService")
+            local RunService = game:GetService("RunService")
+            local speed = 50
+    
+                         if Value then
+                 savedFly2 = true -- Save the state
+                 local Character = Player.Character or Player.CharacterAdded:Wait()
+                 local HumanoidRootPart = Character:WaitForChild("HumanoidRootPart")
+     
+                 bodyVelocity2 = Instance.new("BodyVelocity")
+                 bodyVelocity2.MaxForce = Vector3.new(1e5, 1e5, 1e5)
+                 bodyVelocity2.Velocity = Vector3.zero
+                 bodyVelocity2.Parent = HumanoidRootPart
+     
+                 flyConnection2 = RunService.RenderStepped:Connect(function()
+                     if bodyVelocity2 and bodyVelocity2.Parent then
+                         local moveDirection = Vector3.zero
+                         if UserInputService:IsKeyDown(Enum.KeyCode.W) then
+                             moveDirection += workspace.CurrentCamera.CFrame.LookVector
+                         end
+                         if UserInputService:IsKeyDown(Enum.KeyCode.S) then
+                             moveDirection -= workspace.CurrentCamera.CFrame.LookVector
+                         end
+                         if UserInputService:IsKeyDown(Enum.KeyCode.A) then
+                             moveDirection -= workspace.CurrentCamera.CFrame.RightVector
+                         end
+                         if UserInputService:IsKeyDown(Enum.KeyCode.D) then
+                             moveDirection += workspace.CurrentCamera.CFrame.RightVector
+                         end
+                         if UserInputService:IsKeyDown(Enum.KeyCode.Space) then
+                             moveDirection += Vector3.new(0, 1, 0)
+                         end
+                         if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then
+                             moveDirection -= Vector3.new(0, 1, 0)
+                         end
+     
+                         if moveDirection.Magnitude > 0 then
+                             bodyVelocity2.Velocity = moveDirection.Unit * speed
+                         else
+                             bodyVelocity2.Velocity = Vector3.zero
+                         end
+                     end
+                 end)
+                 
+                 Rayfield:Notify({
+                     Title = "Fly",
+                     Content = "Fly activated (will auto-apply on respawn) - Use WASD + Space/Ctrl",
+                     Duration = 2,
+                 })
+             else
+                 savedFly2 = false -- Save the state
+                 if flyConnection2 then
+                     flyConnection2:Disconnect()
+                     flyConnection2 = nil
+                 end
+                 if bodyVelocity2 then
+                     bodyVelocity2:Destroy()
+                     bodyVelocity2 = nil
+                 end
+                 
+                 Rayfield:Notify({
+                     Title = "Fly",
+                     Content = "Fly deactivated",
+                     Duration = 2,
+                 })
+             end
+        end,
+    })
+    
+    -- Combat Tab
+    local FOVSlider = CombatTab:CreateSlider({
+        Name = "Aimbot FOV",
+        Range = {50, 500},
+        Increment = 10,
+        Suffix = "pixels",
+        CurrentValue = 200,
+        Flag = "Slider1",
+        Callback = function(Value)
+            aimbotFOV2 = Value
+            if fovCircle2 then
+                fovCircle2.Radius = aimbotFOV2
+            end
+        end,
+    })
+    
+    local Toggle = CombatTab:CreateToggle({
+        Name = "Aimbot (Hold Right Click)",
+        CurrentValue = false,
+        Flag = "Toggle4",
+        Callback = function(Value)
+            local Players = game:GetService("Players")
+            local RunService = game:GetService("RunService")
+            local UserInputService = game:GetService("UserInputService")
+            local Camera = workspace.CurrentCamera
+            
+            if Value then
+                                 -- Create FOV circle
+                 if not fovCircle2 then
+                     fovCircle2 = Drawing.new("Circle")
+                     fovCircle2.Thickness = 2
+                     fovCircle2.NumSides = 100
+                     fovCircle2.Radius = aimbotFOV2
+                     fovCircle2.Filled = false
+                     fovCircle2.Visible = true
+                     fovCircle2.Color = fovColor2
+                     fovCircle2.Transparency = 1
+                     fovCircle2.Position = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+                 else
+                     fovCircle2.Visible = true
+                     fovCircle2.Color = fovColor2
+                 end
+                
+                aimbotConnection2 = RunService.RenderStepped:Connect(function()
+                    if fovCircle2 then
+                        fovCircle2.Position = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+                    end
+                    
+                                         local isKeyPressed = false
+                     
+                     -- Check if it's a mouse button
+                     if aimbotKey2 == Enum.UserInputType.MouseButton1 or 
+                        aimbotKey2 == Enum.UserInputType.MouseButton2 or 
+                        aimbotKey2 == Enum.UserInputType.MouseButton3 then
+                         isKeyPressed = UserInputService:IsMouseButtonPressed(aimbotKey2)
+                     else
+                         -- Check if it's a keyboard key
+                         if aimbotKey2 == Enum.KeyCode.Q then
+                             isKeyPressed = UserInputService:IsKeyDown(Enum.KeyCode.Q)
+                         elseif aimbotKey2 == Enum.KeyCode.E then
+                             isKeyPressed = UserInputService:IsKeyDown(Enum.KeyCode.E)
+                         elseif aimbotKey2 == Enum.KeyCode.R then
+                             isKeyPressed = UserInputService:IsKeyDown(Enum.KeyCode.R)
+                         elseif aimbotKey2 == Enum.KeyCode.F then
+                             isKeyPressed = UserInputService:IsKeyDown(Enum.KeyCode.F)
+                         elseif aimbotKey2 == Enum.KeyCode.G then
+                             isKeyPressed = UserInputService:IsKeyDown(Enum.KeyCode.G)
+                         elseif aimbotKey2 == Enum.KeyCode.H then
+                             isKeyPressed = UserInputService:IsKeyDown(Enum.KeyCode.H)
+                         elseif aimbotKey2 == Enum.KeyCode.J then
+                             isKeyPressed = UserInputService:IsKeyDown(Enum.KeyCode.J)
+                         elseif aimbotKey2 == Enum.KeyCode.K then
+                             isKeyPressed = UserInputService:IsKeyDown(Enum.KeyCode.K)
+                         elseif aimbotKey2 == Enum.KeyCode.L then
+                             isKeyPressed = UserInputService:IsKeyDown(Enum.KeyCode.L)
+                         elseif aimbotKey2 == Enum.KeyCode.Z then
+                             isKeyPressed = UserInputService:IsKeyDown(Enum.KeyCode.Z)
+                         elseif aimbotKey2 == Enum.KeyCode.X then
+                             isKeyPressed = UserInputService:IsKeyDown(Enum.KeyCode.X)
+                         elseif aimbotKey2 == Enum.KeyCode.C then
+                             isKeyPressed = UserInputService:IsKeyDown(Enum.KeyCode.C)
+                         elseif aimbotKey2 == Enum.KeyCode.V then
+                             isKeyPressed = UserInputService:IsKeyDown(Enum.KeyCode.V)
+                         elseif aimbotKey2 == Enum.KeyCode.B then
+                             isKeyPressed = UserInputService:IsKeyDown(Enum.KeyCode.B)
+                         elseif aimbotKey2 == Enum.KeyCode.N then
+                             isKeyPressed = UserInputService:IsKeyDown(Enum.KeyCode.N)
+                         elseif aimbotKey2 == Enum.KeyCode.M then
+                             isKeyPressed = UserInputService:IsKeyDown(Enum.KeyCode.M)
+                         end
+                     end
+                     
+                     if isKeyPressed then
+                        local closestPlayer = nil
+                        local shortestDistance = math.huge
+                        
+                                                 for _, player in pairs(Players:GetPlayers()) do
+                             if player ~= game.Players.LocalPlayer and not isOnSameTeam(player) then
+                                 local character = player.Character
+                                 if character and character:FindFirstChild("HumanoidRootPart") and character:FindFirstChild("Humanoid") then
+                                     if character.Humanoid.Health > 0 then
+                                         -- Check if player is visible or wallbang is enabled
+                                         if wallbangEnabled2 or isPlayerVisible(player) then
+                                        local distance = (character.HumanoidRootPart.Position - Camera.CFrame.Position).Magnitude
+                                        
+                                        local screenPoint, onScreen = Camera:WorldToViewportPoint(character.HumanoidRootPart.Position)
+                                        if onScreen then
+                                            local mousePos = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+                                            local targetPos = Vector2.new(screenPoint.X, screenPoint.Y)
+                                            local fovDistance = (mousePos - targetPos).Magnitude
+                                            
+                                                                                         if fovDistance < aimbotFOV2 and distance < 300 then
+                                                 if distance < shortestDistance then
+                                                     shortestDistance = distance
+                                                     closestPlayer = player
+                                                 end
+                                             end
+                                         end
+                                         end
+                                     end
+                                 end
+                             end
+                         end
+                        
+                        if closestPlayer and closestPlayer.Character and closestPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                            aimbotTarget2 = closestPlayer
+                            local targetPosition = closestPlayer.Character.HumanoidRootPart.Position
+                            local cameraPosition = Camera.CFrame.Position
+                            
+                            local lookAt = CFrame.new(cameraPosition, targetPosition)
+                            Camera.CFrame = Camera.CFrame:Lerp(lookAt, 0.3)
+                        else
+                            aimbotTarget2 = nil
+                        end
+                    else
+                        aimbotTarget2 = nil
+                    end
+                end)
+                
+                                 local keyName = "Right Click"
+                 if aimbotKey2 == Enum.UserInputType.MouseButton1 then
+                     keyName = "Left Click"
+                 elseif aimbotKey2 == Enum.UserInputType.MouseButton3 then
+                     keyName = "Middle Click"
+                 elseif aimbotKey2 == Enum.KeyCode.Q then
+                     keyName = "Q"
+                 elseif aimbotKey2 == Enum.KeyCode.E then
+                     keyName = "E"
+                 elseif aimbotKey2 == Enum.KeyCode.R then
+                     keyName = "R"
+                 elseif aimbotKey2 == Enum.KeyCode.F then
+                     keyName = "F"
+                 elseif aimbotKey2 == Enum.KeyCode.G then
+                     keyName = "G"
+                 elseif aimbotKey2 == Enum.KeyCode.H then
+                     keyName = "H"
+                 elseif aimbotKey2 == Enum.KeyCode.J then
+                     keyName = "J"
+                 elseif aimbotKey2 == Enum.KeyCode.K then
+                     keyName = "K"
+                 elseif aimbotKey2 == Enum.KeyCode.L then
+                     keyName = "L"
+                 elseif aimbotKey2 == Enum.KeyCode.Z then
+                     keyName = "Z"
+                 elseif aimbotKey2 == Enum.KeyCode.X then
+                     keyName = "X"
+                 elseif aimbotKey2 == Enum.KeyCode.C then
+                     keyName = "C"
+                 elseif aimbotKey2 == Enum.KeyCode.V then
+                     keyName = "V"
+                 elseif aimbotKey2 == Enum.KeyCode.B then
+                     keyName = "B"
+                 elseif aimbotKey2 == Enum.KeyCode.N then
+                     keyName = "N"
+                 elseif aimbotKey2 == Enum.KeyCode.M then
+                     keyName = "M"
+                 end
+                 
+                 Rayfield:Notify({
+                     Title = "Aimbot",
+                     Content = "Aimbot activated - Hold " .. keyName .. " to aim at players",
+                     Duration = 3,
+                 })
+            else
+                if fovCircle2 then
+                    fovCircle2.Visible = false
+                end
+                if aimbotConnection2 then
+                    aimbotConnection2:Disconnect()
+                    aimbotConnection2 = nil
+                end
+                aimbotTarget2 = nil
+                
+                Rayfield:Notify({
+                    Title = "Aimbot",
+                    Content = "Aimbot deactivated",
+                    Duration = 2,
+                })
+            end
+        end,
+    })
+    
+         local Toggle = CombatTab:CreateToggle({
+         Name = "Wallbang",
+         CurrentValue = false,
+         Flag = "Toggle5",
+         Callback = function(Value)
+             wallbangEnabled2 = Value
+             Rayfield:Notify({
+                 Title = "Wallbang",
+                 Content = Value and "Wallbang activated - Can target players through walls" or "Wallbang deactivated - Only visible players",
+                 Duration = 3,
+             })
+         end,
+     })
+     
+     local Button = CombatTab:CreateButton({
+         Name = "TP to Closest Player",
+         Callback = function()
+             teleportToClosestPlayer()
+         end,
+     })
+     
+     local Button = CombatTab:CreateButton({
+         Name = "Bring Closest Player",
+         Callback = function()
+             if bringConnection2 then
+                 stopBringingPlayer()
+             else
+                 bringClosestPlayer()
+             end
+         end,
+     })
+     
+     local Toggle = CombatTab:CreateToggle({
+         Name = "ESP All Players",
+         CurrentValue = false,
+         Flag = "Toggle7",
+        Callback = function(Value)
+            local Players = game:GetService("Players")
+            local RunService = game:GetService("RunService")
+            
+            if Value then
+                espEnabled2 = true
+                
+                                 local function updateAllPlayerHighlights()
+                     for _, player in pairs(Players:GetPlayers()) do
+                         if player ~= game.Players.LocalPlayer and not isOnSameTeam(player) then
+                            local character = player.Character
+                            if character and character:FindFirstChild("HumanoidRootPart") then
+                                if not highlights2[player] then
+                                                                         local highlight = Instance.new("Highlight")
+                                     highlight.FillColor = espColor2
+                                     highlight.OutlineColor = espColor2
+                                    highlight.FillTransparency = 0.3
+                                    highlight.OutlineTransparency = 0
+                                    highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+                                    highlight.Parent = character
+                                    highlights2[player] = highlight
+                                end
+                            end
+                        end
+                    end
+                end
+
+                espConnection2 = RunService.RenderStepped:Connect(updateAllPlayerHighlights)
+                
+                playerAddedConnection2 = Players.PlayerAdded:Connect(function(player)
+                    player.CharacterAdded:Connect(function(character)
+                        wait(1)
+                        if espEnabled2 then
+                            updateAllPlayerHighlights()
+                        end
+                    end)
+                end)
+                
+                playerRemovingConnection2 = Players.PlayerRemoving:Connect(function(player)
+                    if highlights2[player] then
+                        highlights2[player]:Destroy()
+                        highlights2[player] = nil
+                    end
+                end)
+                
+                -- Auto reset ESP when local player respawns (new round)
+                local localPlayer = game.Players.LocalPlayer
+                localPlayer.CharacterAdded:Connect(function(character)
+                    wait(2) -- Wait for character to fully load
+                    if espEnabled2 then
+                        -- Clear old highlights
+                        for player, highlight in pairs(highlights2) do
+                            if highlight then
+                                highlight:Destroy()
+                            end
+                        end
+                        highlights2 = {}
+                        
+                        -- Update highlights for current players
+                        updateAllPlayerHighlights()
+                        
+                        Rayfield:Notify({
+                            Title = "ESP Reset",
+                            Content = "ESP automatically reset for new round",
+                            Duration = 2,
+                        })
+                    end
+                end)
+                
+                Rayfield:Notify({
+                    Title = "ESP All Players",
+                    Content = "ESP activated - All players are now visible",
+                    Duration = 2,
+                })
+            else
+                espEnabled2 = false
+                
+                if espConnection2 then
+                    espConnection2:Disconnect()
+                    espConnection2 = nil
+                end
+                
+                if playerAddedConnection2 then
+                    playerAddedConnection2:Disconnect()
+                    playerAddedConnection2 = nil
+                end
+                
+                if playerRemovingConnection2 then
+                    playerRemovingConnection2:Disconnect()
+                    playerRemovingConnection2 = nil
+                end
+                
+                for player, highlight in pairs(highlights2) do
+                    if highlight then
+                        highlight:Destroy()
+                    end
+                end
+                highlights2 = {}
+                
+             end
+         end,
+     })
+     
+     -- Options Tab
+     local FOVColorPicker = OptionsTab:CreateColorPicker({
+         Name = "FOV Color",
+         Color = Color3.fromRGB(255, 255, 255),
+         Flag = "FOVColor",
+         Callback = function(Value)
+             fovColor2 = Value
+             if fovCircle2 then
+                 fovCircle2.Color = fovColor2
+             end
+             
+             Rayfield:Notify({
+                 Title = "FOV Color",
+                 Content = "FOV color updated",
+                 Duration = 2,
+             })
+         end,
+     })
+     
+     local ESPColorPicker = OptionsTab:CreateColorPicker({
+         Name = "ESP Color",
+         Color = Color3.fromRGB(255, 255, 0),
+         Flag = "ESPColor",
+         Callback = function(Value)
+             espColor2 = Value
+             
+             -- Update existing ESP highlights
+             for player, highlight in pairs(highlights2) do
+                 if highlight then
+                     highlight.FillColor = espColor2
+                     highlight.OutlineColor = espColor2
+                 end
+             end
+             
+             Rayfield:Notify({
+                 Title = "ESP Color",
+                 Content = "ESP color updated",
+                 Duration = 2,
+             })
+         end,
+     })
+     
+                       local IgnoreTeamToggle = OptionsTab:CreateToggle({
+           Name = "Ignore Teammates",
+           CurrentValue = true,
+           Flag = "IgnoreTeam",
+           Callback = function(Value)
+               ignoreTeam2 = Value
+               
+               -- Update ESP highlights if ESP is enabled
+               if espEnabled2 then
+                   -- Clear all current highlights
+                   for player, highlight in pairs(highlights2) do
+                       if highlight then
+                           highlight:Destroy()
+                       end
+                   end
+                   highlights2 = {}
+                   
+                   -- Re-apply highlights with new team settings
+                   local Players = game:GetService("Players")
+                   for _, player in pairs(Players:GetPlayers()) do
+                       if player ~= game.Players.LocalPlayer and not isOnSameTeam(player) then
+                           local character = player.Character
+                           if character and character:FindFirstChild("HumanoidRootPart") then
+                               local highlight = Instance.new("Highlight")
+                               highlight.FillColor = espColor2
+                               highlight.OutlineColor = espColor2
+                               highlight.FillTransparency = 0.3
+                               highlight.OutlineTransparency = 0
+                               highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+                               highlight.Parent = character
+                               highlights2[player] = highlight
+                           end
+                       end
+                   end
+               end
+               
+               Rayfield:Notify({
+                   Title = "Team Ignore",
+                   Content = Value and "Aimbot and ESP will ignore teammates" or "Aimbot and ESP will target all players",
+                   Duration = 2,
+               })
+           end,
+       })
+      
+             local TargetTypeToggle = OptionsTab:CreateToggle({
+           Name = "Target Enemies (TP/Bring)",
+           CurrentValue = true,
+           Flag = "TargetEnemies",
+           Callback = function(Value)
+               targetEnemies2 = Value
+               local targetType = Value and "enemies" or "teammates"
+               Rayfield:Notify({
+                   Title = "Target Type",
+                   Content = "TP and Bring will now target " .. targetType,
+                   Duration = 2,
+               })
+           end,
+       })
+       
+       local AimbotKeyDropdown = OptionsTab:CreateDropdown({
+           Name = "Aimbot Key",
+           Options = {"Right Click", "Left Click", "Middle Click", "Q", "E", "R", "F", "G", "H", "J", "K", "L", "Z", "X", "C", "V", "B", "N", "M"},
+           CurrentOption = "Right Click",
+           Flag = "AimbotKey",
+           Callback = function(Value)
+             if Value == "Right Click" then
+                 aimbotKey2 = Enum.UserInputType.MouseButton2
+             elseif Value == "Left Click" then
+                 aimbotKey2 = Enum.UserInputType.MouseButton1
+             elseif Value == "Middle Click" then
+                 aimbotKey2 = Enum.UserInputType.MouseButton3
+             elseif Value == "Q" then
+                 aimbotKey2 = Enum.KeyCode.Q
+             elseif Value == "E" then
+                 aimbotKey2 = Enum.KeyCode.E
+             elseif Value == "R" then
+                 aimbotKey2 = Enum.KeyCode.R
+             elseif Value == "F" then
+                 aimbotKey2 = Enum.KeyCode.F
+             elseif Value == "G" then
+                 aimbotKey2 = Enum.KeyCode.G
+             elseif Value == "H" then
+                 aimbotKey2 = Enum.KeyCode.H
+             elseif Value == "J" then
+                 aimbotKey2 = Enum.KeyCode.J
+             elseif Value == "K" then
+                 aimbotKey2 = Enum.KeyCode.K
+             elseif Value == "L" then
+                 aimbotKey2 = Enum.KeyCode.L
+             elseif Value == "Z" then
+                 aimbotKey2 = Enum.KeyCode.Z
+             elseif Value == "X" then
+                 aimbotKey2 = Enum.KeyCode.X
+             elseif Value == "C" then
+                 aimbotKey2 = Enum.KeyCode.C
+             elseif Value == "V" then
+                 aimbotKey2 = Enum.KeyCode.V
+             elseif Value == "B" then
+                 aimbotKey2 = Enum.KeyCode.B
+             elseif Value == "N" then
+                 aimbotKey2 = Enum.KeyCode.N
+             elseif Value == "M" then
+                 aimbotKey2 = Enum.KeyCode.M
+             end
+             
+             Rayfield:Notify({
+                 Title = "Aimbot Key",
+                 Content = "Aimbot key changed to: " .. Value,
+                 Duration = 2,
+             })
+         end,
+     })
+     end
