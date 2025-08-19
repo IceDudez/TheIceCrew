@@ -236,11 +236,11 @@ local playerUpdateConnection = nil
 local hammerPlayerColor = Color3.fromRGB(255, 0, 0) -- Red for Hammer players
 local normalPlayerColor = Color3.fromRGB(0, 255, 0) -- Green for normal players
 
--- Function to check if player has Hammer
-local function hasHammer(player)
+-- Function to check if player has BeastPowers
+local function hasBeastPowers(player)
     if player and player.Character then
         for _, item in pairs(player.Character:GetDescendants()) do
-            if item.Name == "Hammer" then
+            if item.Name == "BeastPowers" then
                 return true
             end
         end
@@ -254,9 +254,9 @@ local function createPlayerHighlight(player)
     
     local highlight = Instance.new("Highlight")
     
-    -- Check if player has Hammer
-    if hasHammer(player) then
-        highlight.FillColor = hammerPlayerColor -- Red for Hammer players
+    -- Check if player has BeastPowers
+    if hasBeastPowers(player) then
+        highlight.FillColor = hammerPlayerColor -- Red for BeastPowers players
     else
         highlight.FillColor = normalPlayerColor -- Green for normal players
     end
@@ -354,11 +354,11 @@ local PlayerESPToggle = ESPTab:CreateToggle({
 -- ESP Options Section
 local ESPOptionsSection = ESPTab:CreateSection("ESP Options")
 
--- Hammer Player Color Picker
-local HammerColorPicker = ESPTab:CreateColorPicker({
-    Name = "Hammer Player Color",
+-- BeastPowers Player Color Picker
+local BeastPowersColorPicker = ESPTab:CreateColorPicker({
+    Name = "BeastPowers Player Color",
     Color = Color3.fromRGB(255, 0, 0),
-    Flag = "HammerColorPicker",
+    Flag = "BeastPowersColorPicker",
     Callback = function(Value)
         hammerPlayerColor = Value
         -- Update existing highlights if ESP is enabled
@@ -512,11 +512,11 @@ local TeleportTab = Window:CreateTab("Teleport", nil)
 -- Teleport Section
 local TeleportSection = TeleportTab:CreateSection("Teleport Options")
 
--- Function to check if player has Hammer
-local function hasHammer(player)
+-- Function to check if player has BeastPowers
+local function hasBeastPowers(player)
     if player and player.Character then
         for _, item in pairs(player.Character:GetDescendants()) do
-            if item.Name == "Hammer" then
+            if item.Name == "BeastPowers" then
                 return true
             end
         end
@@ -536,56 +536,56 @@ local function teleportToPlayer(player)
     return false
 end
 
--- Function to find player with Hammer
-local function findPlayerWithHammer()
+-- Function to find player with BeastPowers
+local function findPlayerWithBeastPowers()
     for _, player in pairs(game.Players:GetPlayers()) do
-        if player ~= game.Players.LocalPlayer and hasHammer(player) then
+        if player ~= game.Players.LocalPlayer and hasBeastPowers(player) then
             return player
         end
     end
     return nil
 end
 
--- Function to find random player without Hammer
-local function findRandomPlayerWithoutHammer()
-    local playersWithoutHammer = {}
+-- Function to find random player without BeastPowers
+local function findRandomPlayerWithoutBeastPowers()
+    local playersWithoutBeastPowers = {}
     
     for _, player in pairs(game.Players:GetPlayers()) do
-        if player ~= game.Players.LocalPlayer and not hasHammer(player) then
-            table.insert(playersWithoutHammer, player)
+        if player ~= game.Players.LocalPlayer and not hasBeastPowers(player) then
+            table.insert(playersWithoutBeastPowers, player)
         end
     end
     
-    if #playersWithoutHammer > 0 then
-        return playersWithoutHammer[math.random(1, #playersWithoutHammer)]
+    if #playersWithoutBeastPowers > 0 then
+        return playersWithoutBeastPowers[math.random(1, #playersWithoutBeastPowers)]
     end
     
     return nil
 end
 
--- Teleport to Hammer Player Button
-local TeleportHammerButton = TeleportTab:CreateButton({
-    Name = "Teleport to Hammer Player",
+-- Teleport to BeastPowers Player Button
+local TeleportBeastPowersButton = TeleportTab:CreateButton({
+    Name = "Teleport to BeastPowers Player",
     Callback = function()
-        local hammerPlayer = findPlayerWithHammer()
-        if hammerPlayer then
-            if teleportToPlayer(hammerPlayer) then
+        local beastPowersPlayer = findPlayerWithBeastPowers()
+        if beastPowersPlayer then
+            if teleportToPlayer(beastPowersPlayer) then
                 Rayfield:Notify({
                     Title = "Teleport",
-                    Content = "Teleported to " .. hammerPlayer.Name .. " (Hammer Player)",
+                    Content = "Teleported to " .. beastPowersPlayer.Name .. " (BeastPowers Player)",
                     Duration = 3,
                 })
             else
                 Rayfield:Notify({
                     Title = "Teleport Error",
-                    Content = "Failed to teleport to " .. hammerPlayer.Name,
+                    Content = "Failed to teleport to " .. beastPowersPlayer.Name,
                     Duration = 3,
                 })
             end
         else
             Rayfield:Notify({
                 Title = "Teleport Error",
-                Content = "No player with Hammer found",
+                Content = "No player with BeastPowers found",
                 Duration = 3,
             })
         end
@@ -594,9 +594,9 @@ local TeleportHammerButton = TeleportTab:CreateButton({
 
 -- Teleport to Random Player Button
 local TeleportRandomButton = TeleportTab:CreateButton({
-    Name = "Teleport to Random Player (No Hammer)",
+    Name = "Teleport to Random Player (No BeastPowers)",
     Callback = function()
-        local randomPlayer = findRandomPlayerWithoutHammer()
+        local randomPlayer = findRandomPlayerWithoutBeastPowers()
         if randomPlayer then
             if teleportToPlayer(randomPlayer) then
                 Rayfield:Notify({
@@ -614,7 +614,7 @@ local TeleportRandomButton = TeleportTab:CreateButton({
         else
             Rayfield:Notify({
                 Title = "Teleport Error",
-                Content = "No players without Hammer found",
+                Content = "No players without BeastPowers found",
                 Duration = 3,
             })
         end
