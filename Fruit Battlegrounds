@@ -840,19 +840,14 @@ end
     
 
     
-    -- Teleport Functions
-    local function teleportToPlayer(playerName)
-        local targetPlayer = game.Players:FindFirstChild(playerName)
-        if targetPlayer and targetPlayer.Character and targetPlayer.Character:FindFirstChild("HumanoidRootPart") then
-            local localPlayer = game.Players.LocalPlayer
-            if localPlayer.Character and localPlayer.Character:FindFirstChild("HumanoidRootPart") then
-                localPlayer.Character.HumanoidRootPart.CFrame = targetPlayer.Character.HumanoidRootPart.CFrame
-                return true
-            end
-        end
-        return false
-    end
+
     
+
+    
+    -- NPC Teleport Section
+    local NPCTPSection = TeleportTab:CreateSection("NPC Teleport")
+    
+    -- Function to teleport to NPCs
     local function teleportToNPC(npcName)
         local npcsFolder = workspace:FindFirstChild("NPCs")
         if npcsFolder then
@@ -876,122 +871,7 @@ end
         return false
     end
     
-    -- Player Teleport Section
-    local PlayerTPSection = TeleportTab:CreateSection("Player Teleport")
-    
-    -- Player Refresh Button
-    local RefreshPlayersButton = TeleportTab:CreateButton({
-        Name = "Refresh Player List",
-        Callback = function()
-            -- Clear old player buttons by recreating the section
-            local PlayerButtonsSection = TeleportTab:CreateSection("Player Buttons")
-            
-            for _, player in pairs(game.Players:GetPlayers()) do
-                if player ~= game.Players.LocalPlayer then
-                    local PlayerTPButton = TeleportTab:CreateButton({
-                        Name = "TP to " .. player.Name,
-                        Callback = function()
-                            if teleportToPlayer(player.Name) then
-                                Rayfield:Notify({
-                                    Title = "Player Teleport",
-                                    Content = "Teleported to " .. player.Name,
-                                    Duration = 2,
-                                })
-                            else
-                                Rayfield:Notify({
-                                    Title = "Player Teleport Error",
-                                    Content = "Failed to teleport to " .. player.Name,
-                                    Duration = 3,
-                                })
-                            end
-                        end,
-                    })
-                end
-            end
-            
-            Rayfield:Notify({
-                Title = "Player Teleport",
-                Content = "Player list refreshed",
-                Duration = 2,
-            })
-        end,
-    })
-    
-    -- NPC Teleport Section
-    local NPCTPSection = TeleportTab:CreateSection("NPC Teleport")
-    
-    -- NPC Refresh Button
-    local RefreshNPCsButton = TeleportTab:CreateButton({
-        Name = "Refresh NPC List",
-        Callback = function()
-            -- Clear old NPC buttons by recreating the section
-            local NPCButtonsSection = TeleportTab:CreateSection("NPC Buttons")
-            
-            local npcsFolder = workspace:FindFirstChild("NPCs")
-            
-            if npcsFolder then
-                for _, npc in pairs(npcsFolder:GetChildren()) do
-                    if npc:IsA("Model") then
-                        local NPCTPButton = TeleportTab:CreateButton({
-                            Name = "TP to " .. npc.Name,
-                            Callback = function()
-                                if teleportToNPC(npc.Name) then
-                                    Rayfield:Notify({
-                                        Title = "NPC Teleport",
-                                        Content = "Teleported to " .. npc.Name,
-                                        Duration = 2,
-                                    })
-                                else
-                                    Rayfield:Notify({
-                                        Title = "NPC Teleport Error",
-                                        Content = "Failed to teleport to " .. npc.Name,
-                                        Duration = 3,
-                                    })
-                                end
-                            end,
-                        })
-                    end
-                end
-            end
-            
-            Rayfield:Notify({
-                Title = "NPC Teleport",
-                Content = "NPC list refreshed",
-                Duration = 2,
-            })
-        end,
-    })
-    
-    -- Initialize buttons with delay to ensure UI is ready
-    task.wait(1) -- Wait 1 second for UI to load
-    
-    -- Create initial player buttons
-    local PlayerButtonsSection = TeleportTab:CreateSection("Player Buttons")
-    for _, player in pairs(game.Players:GetPlayers()) do
-        if player ~= game.Players.LocalPlayer then
-            local PlayerTPButton = TeleportTab:CreateButton({
-                Name = "TP to " .. player.Name,
-                Callback = function()
-                    if teleportToPlayer(player.Name) then
-                        Rayfield:Notify({
-                            Title = "Player Teleport",
-                            Content = "Teleported to " .. player.Name,
-                            Duration = 2,
-                        })
-                    else
-                        Rayfield:Notify({
-                            Title = "Player Teleport Error",
-                            Content = "Failed to teleport to " .. player.Name,
-                            Duration = 3,
-                        })
-                    end
-                end,
-            })
-        end
-    end
-    
-    -- Create initial NPC buttons
-    local NPCButtonsSection = TeleportTab:CreateSection("NPC Buttons")
+    -- Create NPC teleport buttons
     local npcsFolder = workspace:FindFirstChild("NPCs")
     if npcsFolder then
         for _, npc in pairs(npcsFolder:GetChildren()) do
@@ -1017,3 +897,6 @@ end
             end
         end
     end
+    
+
+    
