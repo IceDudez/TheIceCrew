@@ -1,0 +1,871 @@
+
+local Rayfield = loadstring(game:HttpGet("https://sirius.menu/rayfield"))()
+    
+local Window = Rayfield:CreateWindow({
+    Name = "TheIceCrew | Fruit Battlegrounds",
+    Icon = 0,
+    LoadingTitle = "TheIceCrewHub",
+    LoadingSubtitle = "by IceDudez",
+    ShowText = "Rayfield",
+    Theme = "Default",
+    ToggleUIKeybind = "K",
+    DisableRayfieldPrompts = false,
+    DisableBuildWarnings = false,
+    ConfigurationSaving = {
+        Enabled = true,
+        FolderName = nil,
+        FileName = "IceHub"
+    },
+    Discord = {
+        Enabled = false,
+        Invite = "noinvitelink",
+        RememberJoins = true
+    },
+    KeySystem = true,
+    KeySettings = {
+        Title = "IceHubKeySystem",
+        Subtitle = "Key System",
+        Note = "https://loot-link.com/s?2kHdmfCz",
+        FileName = "IceHubKey",
+        SaveKey = true,
+        GrabKeyFromSite = true,
+        Key = {"https://pastebin.com/raw/hnLvPxsd"}
+    }
+})
+
+Rayfield:Notify({
+    Title = "Script Loaded",
+    Content = "Thanks for using TheIceCrewHub - Fruit Battlegrounds",
+    Duration = 5,
+    Image = nil,
+})
+
+-- Variables for Fruit Battlegrounds
+local savedSpeed = 16 -- Default walk speed
+local savedJumpHeight = 7.2 -- Default jump height
+
+-- ESP Variables
+local espEnabled = false
+local espConnection = nil
+local highlights = {}
+local nameTags = {}
+local healthBars = {}
+local distanceTags = {}
+
+-- Combat Variables
+local aimbotEnabled = false
+local aimbotConnection = nil
+local aimbotFOV = 100
+local aimbotSmoothness = 0.8
+local fovCircle = nil
+local autoFarmEnabled = false
+local autoFarmConnection = nil
+local autoFarmRunning = false
+local autoFarmStayTime = 2 -- Time to stay on each skill (2 seconds)
+local autoFarmTimer = 0
+local lastAutoFarmTime = 0
+
+-- Function to apply saved speed and jump settings
+local function applySavedSettings()
+    local Player = game.Players.LocalPlayer
+    if Player.Character and Player.Character:FindFirstChild("Humanoid") then
+        local Humanoid = Player.Character.Humanoid
+        
+        -- Apply saved speed
+        if savedSpeed ~= 16 then
+            Humanoid.WalkSpeed = savedSpeed
+        end
+        
+        -- Apply saved jump height
+        if savedJumpHeight ~= 7.2 then
+            Humanoid.UseJumpPower = false
+            Humanoid.JumpHeight = savedJumpHeight
+        end
+    end
+end
+
+-- Function to set up speed monitoring
+local function setupSpeedMonitoring()
+    local Player = game.Players.LocalPlayer
+    if Player.Character and Player.Character:FindFirstChild("Humanoid") then
+        local Humanoid = Player.Character.Humanoid
+        
+        -- Set up speed monitoring for current character
+        if savedSpeed ~= 16 then
+            -- Connect to WalkSpeed changes
+            Humanoid:GetPropertyChangedSignal("WalkSpeed"):Connect(function()
+                if savedSpeed ~= 16 then -- Only if user has set a custom speed
+                    wait(0.1) -- Small delay to let the game finish its change
+                    if Humanoid.WalkSpeed ~= savedSpeed then
+                        Humanoid.WalkSpeed = savedSpeed
+                    end
+                end
+            end)
+        end
+    end
+end
+
+-- Create Player tab
+local PlayerTab = Window:CreateTab("Player", nil)
+
+-- Create ESP tab
+local ESPTab = Window:CreateTab("ESP", nil)
+
+-- ESP Section
+local ESPSection = ESPTab:CreateSection("ESP Settings")
+
+-- ESP Variables for ComputerTable
+local computerTableESPEnabled = false
+local computerTableHighlights = {}
+local computerTableUpdateConnection = nil
+
+-- Function to create highlight for ComputerTable
+local function createComputerTableHighlight(model)
+    if not model or not model:IsA("Model") then return end
+    
+    local highlight = Instance.new("Highlight")
+    
+    -- Try to find Screen part and get its color
+    local screenPart = model:FindFirstChild("Screen")
+    if screenPart and screenPart:IsA("BasePart") then
+        -- Use the Screen's color
+        highlight.FillColor = screenPart.Color
+    else
+        -- Fallback to green if no Screen found
+        highlight.FillColor = Color3.fromRGB(0, 255, 0)
+    end
+    
+    highlight.OutlineColor = Color3.fromRGB(255, 255, 255) -- White outline
+    highlight.FillTransparency = 0.3
+    highlight.OutlineTransparency = 0
+    highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+    highlight.Parent = model
+    
+    return highlight
+end
+
+-- Function to update ComputerTable ESP
+local function updateComputerTableESP()
+    -- Clear existing highlights
+    for _, highlight in pairs(computerTableHighlights) do
+        if highlight and highlight.Parent then
+            highlight:Destroy()
+        end
+    end
+    computerTableHighlights = {}
+    
+    if not computerTableESPEnabled then return end
+    
+    -- Search for ComputerTable models in workspace
+    for _, obj in pairs(workspace:GetDescendants()) do
+        if obj:IsA("Model") and obj.Name == "ComputerTable" then
+            local highlight = createComputerTableHighlight(obj)
+            if highlight then
+                table.insert(computerTableHighlights, highlight)
+            end
+        end
+    end
+end
+
+-- ComputerTable ESP Toggle
+local ComputerTableESPToggle = ESPTab:CreateToggle({
+    Name = "ESP PC",
+    CurrentValue = false,
+    Flag = "ComputerTableESPToggle",
+    Callback = function(Value)
+        computerTableESPEnabled = Value
+        
+        if Value then
+            -- Initial update
+            updateComputerTableESP()
+            
+            -- Set up automatic updates every 5 seconds
+            computerTableUpdateConnection = game:GetService("RunService").Heartbeat:Connect(function()
+                local currentTime = tick()
+                if not computerTableESPEnabled then
+                    if computerTableUpdateConnection then
+                        computerTableUpdateConnection:Disconnect()
+                        computerTableUpdateConnection = nil
+                    end
+                    return
+                end
+                
+                -- Update every 5 seconds
+                if currentTime % 5 < 0.1 then
+                    updateComputerTableESP()
+                end
+            end)
+            
+            Rayfield:Notify({
+                Title = "ESP PC",
+                Content = "ComputerTable ESP enabled - Updates every 5 seconds",
+                Duration = 3,
+            })
+        else
+            -- Disable ESP
+            if computerTableUpdateConnection then
+                computerTableUpdateConnection:Disconnect()
+                computerTableUpdateConnection = nil
+            end
+            
+            -- Clear highlights
+            for _, highlight in pairs(computerTableHighlights) do
+                if highlight and highlight.Parent then
+                    highlight:Destroy()
+                end
+            end
+            computerTableHighlights = {}
+            
+            Rayfield:Notify({
+                Title = "ESP PC",
+                Content = "ComputerTable ESP disabled",
+                Duration = 2,
+            })
+        end
+    end,
+})
+
+
+
+-- ESP Variables for Players
+local playerESPEnabled = false
+local playerHighlights = {}
+local playerUpdateConnection = nil
+
+-- ESP Color Variables
+local hammerPlayerColor = Color3.fromRGB(255, 0, 0) -- Red for Hammer players
+local normalPlayerColor = Color3.fromRGB(0, 255, 0) -- Green for normal players
+
+-- Function to check if player has Hammer
+local function hasHammer(player)
+    if player and player.Character then
+        for _, item in pairs(player.Character:GetDescendants()) do
+            if item.Name == "Hammer" then
+                return true
+            end
+        end
+    end
+    return false
+end
+
+-- Function to create highlight for Player
+local function createPlayerHighlight(player)
+    if not player or not player.Character then return end
+    
+    local highlight = Instance.new("Highlight")
+    
+    -- Check if player has Hammer
+    if hasHammer(player) then
+        highlight.FillColor = hammerPlayerColor -- Red for Hammer players
+    else
+        highlight.FillColor = normalPlayerColor -- Green for normal players
+    end
+    
+    highlight.OutlineColor = Color3.fromRGB(255, 255, 255) -- White outline
+    highlight.FillTransparency = 0.3
+    highlight.OutlineTransparency = 0
+    highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+    highlight.Parent = player.Character
+    
+    return highlight
+end
+
+-- Function to update Player ESP
+local function updatePlayerESP()
+    -- Clear existing highlights
+    for _, highlight in pairs(playerHighlights) do
+        if highlight and highlight.Parent then
+            highlight:Destroy()
+        end
+    end
+    playerHighlights = {}
+    
+    if not playerESPEnabled then return end
+    
+    -- Search for all players except local player
+    for _, player in pairs(game.Players:GetPlayers()) do
+        if player ~= game.Players.LocalPlayer and player.Character then
+            local highlight = createPlayerHighlight(player)
+            if highlight then
+                playerHighlights[player.Name] = highlight
+            end
+        end
+    end
+end
+
+-- Player ESP Toggle
+local PlayerESPToggle = ESPTab:CreateToggle({
+    Name = "ESP Players",
+    CurrentValue = false,
+    Flag = "PlayerESPToggle",
+    Callback = function(Value)
+        playerESPEnabled = Value
+        
+        if Value then
+            -- Initial update
+            updatePlayerESP()
+            
+            -- Set up automatic updates every 2 seconds (more frequent for players)
+            playerUpdateConnection = game:GetService("RunService").Heartbeat:Connect(function()
+                local currentTime = tick()
+                if not playerESPEnabled then
+                    if playerUpdateConnection then
+                        playerUpdateConnection:Disconnect()
+                        playerUpdateConnection = nil
+                    end
+                    return
+                end
+                
+                -- Update every 2 seconds
+                if currentTime % 2 < 0.1 then
+                    updatePlayerESP()
+                end
+            end)
+            
+            Rayfield:Notify({
+                Title = "ESP Players",
+                Content = "Player ESP enabled - Updates every 2 seconds",
+                Duration = 3,
+            })
+        else
+            -- Disable ESP
+            if playerUpdateConnection then
+                playerUpdateConnection:Disconnect()
+                playerUpdateConnection = nil
+            end
+            
+            -- Clear highlights
+            for _, highlight in pairs(playerHighlights) do
+                if highlight and highlight.Parent then
+                    highlight:Destroy()
+                end
+            end
+            playerHighlights = {}
+            
+            Rayfield:Notify({
+                Title = "ESP Players",
+                Content = "Player ESP disabled",
+                Duration = 2,
+            })
+        end
+    end,
+})
+
+-- ESP Options Section
+local ESPOptionsSection = ESPTab:CreateSection("ESP Options")
+
+-- Hammer Player Color Picker
+local HammerColorPicker = ESPTab:CreateColorPicker({
+    Name = "Hammer Player Color",
+    Color = Color3.fromRGB(255, 0, 0),
+    Flag = "HammerColorPicker",
+    Callback = function(Value)
+        hammerPlayerColor = Value
+        -- Update existing highlights if ESP is enabled
+        if playerESPEnabled then
+            updatePlayerESP()
+        end
+    end,
+})
+
+-- Normal Player Color Picker
+local NormalPlayerColorPicker = ESPTab:CreateColorPicker({
+    Name = "Normal Player Color",
+    Color = Color3.fromRGB(0, 255, 0),
+    Flag = "NormalPlayerColorPicker",
+    Callback = function(Value)
+        normalPlayerColor = Value
+        -- Update existing highlights if ESP is enabled
+        if playerESPEnabled then
+            updatePlayerESP()
+        end
+    end,
+})
+
+
+
+-- Create Misc tab
+local MiscTab = Window:CreateTab("Misc", nil)
+
+-- Misc Section
+local MiscSection = MiscTab:CreateSection("Misc Features")
+
+-- Player Light Variables
+local playerLightEnabled = false
+local playerLight = nil
+local playerLightColor = Color3.fromRGB(255, 255, 255) -- White
+local playerLightBrightness = 2
+local playerLightRange = 20
+
+-- Function to create player light
+local function createPlayerLight()
+    local player = game.Players.LocalPlayer
+    if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then
+        return nil
+    end
+    
+    local light = Instance.new("PointLight")
+    light.Color = playerLightColor
+    light.Brightness = playerLightBrightness
+    light.Range = playerLightRange
+    light.Parent = player.Character.HumanoidRootPart
+    
+    return light
+end
+
+-- Function to update player light
+local function updatePlayerLight()
+    if playerLight and playerLight.Parent then
+        playerLight.Color = playerLightColor
+        playerLight.Brightness = playerLightBrightness
+        playerLight.Range = playerLightRange
+    end
+end
+
+-- Function to remove player light
+local function removePlayerLight()
+    if playerLight and playerLight.Parent then
+        playerLight:Destroy()
+        playerLight = nil
+    end
+end
+
+-- Player Light Toggle
+local PlayerLightToggle = MiscTab:CreateToggle({
+    Name = "Player Light",
+    CurrentValue = false,
+    Flag = "PlayerLightToggle",
+    Callback = function(Value)
+        playerLightEnabled = Value
+        
+        if Value then
+            playerLight = createPlayerLight()
+            if playerLight then
+                Rayfield:Notify({
+                    Title = "Player Light",
+                    Content = "Player light enabled",
+                    Duration = 2,
+                })
+            end
+        else
+            removePlayerLight()
+            Rayfield:Notify({
+                Title = "Player Light",
+                Content = "Player light disabled",
+                Duration = 2,
+            })
+        end
+    end,
+})
+
+-- Player Light Color Picker
+local PlayerLightColorPicker = MiscTab:CreateColorPicker({
+    Name = "Light Color",
+    Color = Color3.fromRGB(255, 255, 255),
+    Flag = "PlayerLightColorPicker",
+    Callback = function(Value)
+        playerLightColor = Value
+        updatePlayerLight()
+    end,
+})
+
+-- Player Light Brightness Slider
+local PlayerLightBrightnessSlider = MiscTab:CreateSlider({
+    Name = "Light Brightness",
+    Range = {0, 10},
+    Increment = 0.1,
+    Suffix = "",
+    CurrentValue = 2,
+    Flag = "PlayerLightBrightnessSlider",
+    Callback = function(Value)
+        playerLightBrightness = Value
+        updatePlayerLight()
+    end,
+})
+
+-- Player Light Range Slider
+local PlayerLightRangeSlider = MiscTab:CreateSlider({
+    Name = "Light Range",
+    Range = {1, 100},
+    Increment = 1,
+    Suffix = " studs",
+    CurrentValue = 20,
+    Flag = "PlayerLightRangeSlider",
+    Callback = function(Value)
+        playerLightRange = Value
+        updatePlayerLight()
+    end,
+})
+
+-- Auto-apply light on respawn
+local Player = game.Players.LocalPlayer
+Player.CharacterAdded:Connect(function(character)
+    if playerLightEnabled then
+        wait(1) -- Wait for character to fully load
+        playerLight = createPlayerLight()
+    end
+end)
+
+-- Create Teleport tab
+local TeleportTab = Window:CreateTab("Teleport", nil)
+
+-- Teleport Section
+local TeleportSection = TeleportTab:CreateSection("Teleport Options")
+
+-- Function to check if player has Hammer
+local function hasHammer(player)
+    if player and player.Character then
+        for _, item in pairs(player.Character:GetDescendants()) do
+            if item.Name == "Hammer" then
+                return true
+            end
+        end
+    end
+    return false
+end
+
+-- Function to teleport to player
+local function teleportToPlayer(player)
+    local localPlayer = game.Players.LocalPlayer
+    if localPlayer.Character and localPlayer.Character:FindFirstChild("HumanoidRootPart") then
+        if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+            localPlayer.Character.HumanoidRootPart.CFrame = player.Character.HumanoidRootPart.CFrame
+            return true
+        end
+    end
+    return false
+end
+
+-- Function to find player with Hammer
+local function findPlayerWithHammer()
+    for _, player in pairs(game.Players:GetPlayers()) do
+        if player ~= game.Players.LocalPlayer and hasHammer(player) then
+            return player
+        end
+    end
+    return nil
+end
+
+-- Function to find random player without Hammer
+local function findRandomPlayerWithoutHammer()
+    local playersWithoutHammer = {}
+    
+    for _, player in pairs(game.Players:GetPlayers()) do
+        if player ~= game.Players.LocalPlayer and not hasHammer(player) then
+            table.insert(playersWithoutHammer, player)
+        end
+    end
+    
+    if #playersWithoutHammer > 0 then
+        return playersWithoutHammer[math.random(1, #playersWithoutHammer)]
+    end
+    
+    return nil
+end
+
+-- Teleport to Hammer Player Button
+local TeleportHammerButton = TeleportTab:CreateButton({
+    Name = "Teleport to Hammer Player",
+    Callback = function()
+        local hammerPlayer = findPlayerWithHammer()
+        if hammerPlayer then
+            if teleportToPlayer(hammerPlayer) then
+                Rayfield:Notify({
+                    Title = "Teleport",
+                    Content = "Teleported to " .. hammerPlayer.Name .. " (Hammer Player)",
+                    Duration = 3,
+                })
+            else
+                Rayfield:Notify({
+                    Title = "Teleport Error",
+                    Content = "Failed to teleport to " .. hammerPlayer.Name,
+                    Duration = 3,
+                })
+            end
+        else
+            Rayfield:Notify({
+                Title = "Teleport Error",
+                Content = "No player with Hammer found",
+                Duration = 3,
+            })
+        end
+    end,
+})
+
+-- Teleport to Random Player Button
+local TeleportRandomButton = TeleportTab:CreateButton({
+    Name = "Teleport to Random Player (No Hammer)",
+    Callback = function()
+        local randomPlayer = findRandomPlayerWithoutHammer()
+        if randomPlayer then
+            if teleportToPlayer(randomPlayer) then
+                Rayfield:Notify({
+                    Title = "Teleport",
+                    Content = "Teleported to " .. randomPlayer.Name .. " (Random Player)",
+                    Duration = 3,
+                })
+            else
+                Rayfield:Notify({
+                    Title = "Teleport Error",
+                    Content = "Failed to teleport to " .. randomPlayer.Name,
+                    Duration = 3,
+                })
+            end
+        else
+            Rayfield:Notify({
+                Title = "Teleport Error",
+                Content = "No players without Hammer found",
+                Duration = 3,
+            })
+        end
+    end,
+})
+
+-- Function to find ComputerTable with specific colors
+local function findComputerTableWithColor()
+    local computerTables = {}
+    
+    -- Target colors: (13, 105, 172) and (196, 40, 28)
+    local targetColor1 = Color3.fromRGB(13, 105, 172)
+    local targetColor2 = Color3.fromRGB(196, 40, 28)
+    
+    for _, obj in pairs(workspace:GetDescendants()) do
+        if obj:IsA("Model") and obj.Name == "ComputerTable" then
+            local screenPart = obj:FindFirstChild("Screen")
+            if screenPart and screenPart:IsA("BasePart") then
+                local color = screenPart.Color
+                -- Check if color matches the target colors (with some tolerance)
+                local tolerance = 0.1
+                if (math.abs(color.R - targetColor1.R) < tolerance and 
+                    math.abs(color.G - targetColor1.G) < tolerance and 
+                    math.abs(color.B - targetColor1.B) < tolerance) or
+                   (math.abs(color.R - targetColor2.R) < tolerance and 
+                    math.abs(color.G - targetColor2.G) < tolerance and 
+                    math.abs(color.B - targetColor2.B) < tolerance) then
+                    table.insert(computerTables, obj)
+                end
+            end
+        end
+    end
+    
+    if #computerTables > 0 then
+        return computerTables[math.random(1, #computerTables)]
+    end
+    
+    return nil
+end
+
+-- Function to teleport to ComputerTable
+local function teleportToComputerTable(computerTable)
+    local localPlayer = game.Players.LocalPlayer
+    if localPlayer.Character and localPlayer.Character:FindFirstChild("HumanoidRootPart") then
+        if computerTable and computerTable:FindFirstChild("Screen") then
+            local screenPart = computerTable.Screen
+            local teleportPosition = screenPart.Position + Vector3.new(0, 0, -5) -- Teleport above the screen
+            localPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(teleportPosition)
+            return true
+        end
+    end
+    return false
+end
+
+-- Teleport to Specific Color PC Button
+local TeleportPCButton = TeleportTab:CreateButton({
+    Name = "Teleport to Specific Color PC",
+    Callback = function()
+        local computerTable = findComputerTableWithColor()
+        if computerTable then
+            if teleportToComputerTable(computerTable) then
+                local screenPart = computerTable.Screen
+                local color = screenPart.Color
+                local colorName = "Unknown"
+                
+                -- Determine which color it matches
+                local targetColor1 = Color3.fromRGB(13, 105, 172)
+                local targetColor2 = Color3.fromRGB(196, 40, 28)
+                local tolerance = 0.1
+                
+                if (math.abs(color.R - targetColor1.R) < tolerance and 
+                    math.abs(color.G - targetColor1.G) < tolerance and 
+                    math.abs(color.B - targetColor1.B) < tolerance) then
+                    colorName = "Blue (13, 105, 172)"
+                elseif (math.abs(color.R - targetColor2.R) < tolerance and 
+                        math.abs(color.G - targetColor2.G) < tolerance and 
+                        math.abs(color.B - targetColor2.B) < tolerance) then
+                    colorName = "Red (196, 40, 28)"
+                end
+                
+                Rayfield:Notify({
+                    Title = "Teleport",
+                    Content = "Teleported to " .. colorName .. " PC",
+                    Duration = 3,
+                })
+            else
+                Rayfield:Notify({
+                    Title = "Teleport Error",
+                    Content = "Failed to teleport to PC",
+                    Duration = 3,
+                })
+            end
+        else
+            Rayfield:Notify({
+                Title = "Teleport Error",
+                Content = "No PC with target colors found",
+                Duration = 3,
+            })
+        end
+    end,
+})
+
+
+
+-- Auto-apply settings on respawn
+local Player = game.Players.LocalPlayer
+Player.CharacterAdded:Connect(function(character)
+    wait(1) -- Wait for character to fully load
+    applySavedSettings()
+    setupSpeedMonitoring()
+end)
+
+-- Set up speed monitoring for current character if it exists
+if Player.Character then
+    setupSpeedMonitoring()
+end
+
+-- Speed Modifier Slider
+local SpeedSlider = PlayerTab:CreateSlider({
+    Name = "Speed Modifier",
+    Range = {16, 200},
+    Increment = 1,
+    Suffix = " Speed",
+    CurrentValue = 16,
+    Flag = "SpeedSlider",
+    Callback = function(Value)
+        savedSpeed = Value
+        local Player = game.Players.LocalPlayer
+        if Player.Character and Player.Character:FindFirstChild("Humanoid") then
+            Player.Character.Humanoid.WalkSpeed = Value
+        end
+        
+        -- Set up monitoring for the new speed value
+        setupSpeedMonitoring()
+        
+        Rayfield:Notify({
+            Title = "Speed",
+            Content = "Speed set to: " .. Value .. " (will auto-apply on respawn)",
+            Duration = 2,
+        })
+    end,
+})
+
+-- Jump Modifier Slider
+local JumpSlider = PlayerTab:CreateSlider({
+    Name = "Jump Modifier",
+    Range = {7.2, 200},
+    Increment = 1,
+    Suffix = " Jump Height",
+    CurrentValue = 7.2,
+    Flag = "JumpSlider",
+    Callback = function(Value)
+        savedJumpHeight = Value
+        local Player = game.Players.LocalPlayer
+        if Player.Character and Player.Character:FindFirstChild("Humanoid") then
+            Player.Character.Humanoid.UseJumpPower = false
+            Player.Character.Humanoid.JumpHeight = Value
+        end
+        
+        Rayfield:Notify({
+            Title = "Jump",
+            Content = "Jump height set to: " .. Value .. " (will auto-apply on respawn)",
+            Duration = 2,
+        })
+    end,
+})
+
+-- Noclip Variables
+local noclipEnabled = false
+local noclipConnection = nil
+
+-- Noclip Function
+local function noclip()
+    local Player = game.Players.LocalPlayer
+    local Character = Player.Character
+    if not Character then return end
+    
+    for _, part in pairs(Character:GetDescendants()) do
+        if part:IsA("BasePart") then
+            part.CanCollide = false
+        end
+    end
+end
+
+-- Noclip Toggle
+local NoclipToggle = PlayerTab:CreateToggle({
+    Name = "Noclip",
+    CurrentValue = false,
+    Flag = "NoclipToggle",
+    Callback = function(Value)
+        noclipEnabled = Value
+        if Value then
+            noclipConnection = game:GetService("RunService").Heartbeat:Connect(noclip)
+            Rayfield:Notify({
+                Title = "Noclip",
+                Content = "Noclip enabled - You can pass through walls",
+                Duration = 3,
+            })
+        else
+            if noclipConnection then
+                noclipConnection:Disconnect()
+                noclipConnection = nil
+            end
+            Rayfield:Notify({
+                Title = "Noclip",
+                Content = "Noclip disabled",
+                Duration = 2,
+            })
+        end
+    end,
+})
+
+
+
+-- Infinite Jump Variables
+local infiniteJumpEnabled = false
+local infiniteJumpConnection = nil
+
+-- Infinite Jump Toggle
+local InfiniteJumpToggle = PlayerTab:CreateToggle({
+    Name = "Infinite Jump",
+    CurrentValue = false,
+    Flag = "InfiniteJumpToggle",
+    Callback = function(Value)
+        infiniteJumpEnabled = Value
+        local Player = game.Players.LocalPlayer
+        local Character = Player.Character
+        
+        if Value then
+            if Character and Character:FindFirstChild("Humanoid") then
+                infiniteJumpConnection = game:GetService("UserInputService").JumpRequest:Connect(function()
+                    Character.Humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+                end)
+                
+                Rayfield:Notify({
+                    Title = "Infinite Jump",
+                    Content = "Infinite Jump enabled - You can jump infinitely",
+                    Duration = 3,
+                })
+            end
+        else
+            if infiniteJumpConnection then
+                infiniteJumpConnection:Disconnect()
+                infiniteJumpConnection = nil
+            end
+            
+            Rayfield:Notify({
+                Title = "Infinite Jump",
+                Content = "Infinite Jump disabled",
+                Duration = 2,
+            })
+        end
+    end,
+})
